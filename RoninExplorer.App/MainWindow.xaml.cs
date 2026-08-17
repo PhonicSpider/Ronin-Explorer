@@ -1,6 +1,8 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using RoninExplorer.App.Services;
 using RoninExplorer.App.ViewModels;
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
@@ -15,12 +17,31 @@ namespace RoninExplorer.App;
 public partial class MainWindow : FluentWindow
 {
     private readonly MainViewModel _viewModel = new();
+    private Dictionary<string, string> _keybinds = KeybindService.LoadEffectiveMap();
+    private Dictionary<string, Func<Task>> _keybindActions = null!;
 
     public MainWindow()
     {
         InitializeComponent();
         SystemThemeWatcher.Watch(this);
         DataContext = _viewModel;
+
+        ThemeService.ApplySkin(ThemeService.LoadOrDefault(ThemeService.LoadLastUsedSkinName()));
+        BuildKeybindActions();
+    }
+
+    private void BuildKeybindActions()
+    {
+        _keybindActions = new Dictionary<string, Func<Task>>
+        {
+            ["Rename"] = () => { if (SelectedRows() is [var row]) _viewModel.BeginRename(row); return Task.CompletedTask; },
+            ["Delete"] = () => SelectedRows() is { Count: > 0 } rows ? _viewModel.DeleteAsync(rows) : Task.CompletedTask,
+            ["Copy"] = () => { if (SelectedRows() is { Count: > 0 } rows) _viewModel.Copy(rows); return Task.CompletedTask; },
+            ["Cut"] = () => { if (SelectedRows() is { Count: > 0 } rows) _viewModel.Cut(rows); return Task.CompletedTask; },
+            ["Paste"] = () => _viewModel.PasteAsync(),
+            ["NewFolder"] = () => _viewModel.NewFolderAsync(),
+            ["Refresh"] = () => _viewModel.RefreshAsync(),
+        };
     }
 
     private void NavTree_SelectedItemChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
@@ -37,7 +58,7 @@ public partial class MainWindow : FluentWindow
 
     private List<FileRow> SelectedRows() => FileList.SelectedItems.Cast<FileRow>().ToList();
 
-    // ── Keyboard shortcuts (hardcoded for M2 — a configurable KeybindService is M6) ──
+    // ── Keyboard shortcuts (M6 — user-rebindable via KeybindService/KeybindSettingsWindow) ──
 
     private async void MainWindow_PreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -45,40 +66,26 @@ public partial class MainWindow : FluentWindow
         // Delete/Ctrl+C/etc. instead of the app-level shortcuts stealing them.
         if (e.OriginalSource is TextBox) return;
 
-        var selected = SelectedRows();
-        var ctrl = Keyboard.Modifiers.HasFlag(ModifierKeys.Control);
-        var shift = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+        var gesture = FormatGesture(e.Key, Keyboard.Modifiers);
+        if (gesture is null) return;
 
-        switch (e.Key)
+        var actionId = _keybinds.FirstOrDefault(kv => string.Equals(kv.Value, gesture, StringComparison.OrdinalIgnoreCase)).Key;
+        if (actionId is null || !_keybindActions.TryGetValue(actionId, out var action)) return;
+
+        e.Handled = true;
+        await action();
+    }
+
+    private static string? FormatGesture(Key key, ModifierKeys modifiers)
+    {
+        try
         {
-            case Key.F2 when selected.Count == 1:
-                _viewModel.BeginRename(selected[0]);
-                e.Handled = true;
-                break;
-            case Key.Delete when selected.Count > 0:
-                await _viewModel.DeleteAsync(selected);
-                e.Handled = true;
-                break;
-            case Key.C when ctrl && selected.Count > 0:
-                _viewModel.Copy(selected);
-                e.Handled = true;
-                break;
-            case Key.X when ctrl && selected.Count > 0:
-                _viewModel.Cut(selected);
-                e.Handled = true;
-                break;
-            case Key.V when ctrl:
-                await _viewModel.PasteAsync();
-                e.Handled = true;
-                break;
-            case Key.N when ctrl && shift:
-                await _viewModel.NewFolderAsync();
-                e.Handled = true;
-                break;
-            case Key.F5:
-                await _viewModel.RefreshAsync();
-                e.Handled = true;
-                break;
+            var kg = new KeyGesture(key, modifiers);
+            return new KeyGestureConverter().ConvertToString(null, CultureInfo.InvariantCulture, kg);
+        }
+        catch (ArgumentException)
+        {
+            return null; // not a valid standalone/modifier gesture (e.g. a bare letter key) — not one of our shortcuts
         }
     }
 
@@ -203,4 +210,17 @@ public partial class MainWindow : FluentWindow
     private async void ScanCleanup_Click(object sender, RoutedEventArgs e) => await _viewModel.ScanCleanupAsync();
 
     private async void DeleteCleanupResults_Click(object sender, RoutedEventArgs e) => await _viewModel.DeleteCleanupResultsAsync();
+
+    // ── Theming (M6) ─────────────────────────────────────────────────────────
+
+    private void Theme_Click(object sender, RoutedEventArgs e)
+        => new ThemeSettingsWindow { Owner = this }.ShowDialog();
+
+    // ── Keybind rebinding UI (M6) ────────────────────────────────────────────
+
+    private void Keybinds_Click(object sender, RoutedEventArgs e)
+    {
+        new KeybindSettingsWindow { Owner = this }.ShowDialog();
+        _keybinds = KeybindService.LoadEffectiveMap(); // pick up any rebinds made in the dialog
+    }
 }

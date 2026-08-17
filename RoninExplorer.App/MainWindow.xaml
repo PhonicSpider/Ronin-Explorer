@@ -149,6 +149,8 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="220" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <Button Grid.Column="0" Content="&#8592;" Width="32" Margin="0,0,4,0"
@@ -173,6 +175,11 @@
                       VerticalContentAlignment="Center" Padding="8,4"
                       ToolTip="Search (Enter to run)"
                       KeyDown="SearchBox_KeyDown" />
+
+            <Button Grid.Column="8" Content="Theme" Padding="8,0" Margin="8,0,4,0"
+                    Click="Theme_Click" ToolTip="Customize colors and background" />
+            <Button Grid.Column="9" Content="Keybinds" Padding="8,0"
+                    Click="Keybinds_Click" ToolTip="Customize keyboard shortcuts" />
         </Grid>
 
         <!-- Nav pane (left) + file list (center) + Details/Tools panel (right) -->
@@ -187,7 +194,7 @@
 
             <TreeView x:Name="NavTree" Grid.Column="0" Margin="8,0,0,8"
                       ItemsSource="{Binding NavRoots}"
-                      BorderThickness="0" Background="Transparent"
+                      BorderThickness="0" Background="{DynamicResource NavPaneBackgroundBrush}"
                       SelectedItemChanged="NavTree_SelectedItemChanged">
                 <TreeView.ItemContainerStyle>
                     <Style TargetType="TreeViewItem">
@@ -210,7 +217,7 @@
             <ListView x:Name="FileList" Grid.Column="2" Margin="0,0,8,8"
                       ItemsSource="{Binding Items}"
                       SelectionMode="Extended"
-                      BorderThickness="0" Background="Transparent"
+                      BorderThickness="0" Background="{DynamicResource FileListBackgroundBrush}"
                       View="{StaticResource DetailsGridView}"
                       MouseDoubleClick="FileList_MouseDoubleClick"
                       SelectionChanged="FileList_SelectionChanged">
@@ -250,7 +257,7 @@
                           Background="Transparent" />
 
             <!-- Details/Tools toggle panel -->
-            <Grid Grid.Column="4" Margin="0,0,8,8">
+            <Grid Grid.Column="4" Margin="0,0,8,8" Background="{DynamicResource PanelBackgroundBrush}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />

@@ -10,6 +10,15 @@
                 <ui:ThemesDictionary Theme="Dark" />
                 <ui:ControlsDictionary />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Fallback values for every DynamicResource key ThemeService can
+                 swap — keeps the app looking correct even before a skin has
+                 been applied (e.g. first paint, or if a skin file is missing). -->
+            <SolidColorBrush x:Key="NavPaneBackgroundBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="FileListBackgroundBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="PanelBackgroundBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="AccentBrush" Color="#3D5AFE" />
+            <SolidColorBrush x:Key="TextPrimaryBrush" Color="White" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
