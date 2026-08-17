@@ -1,0 +1,46 @@
+# Build outputs
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# NuGet
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Publish output
+publish/
+**/publish/
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+
+# Logs
+*.log
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# JetBrains Rider
+.idea/
+*.DotSettings.user
+
+# Publish profiles
+**/Properties/PublishProfiles/
+
+# Release binaries (distributed via GitHub Releases, not committed)
+release-output/
