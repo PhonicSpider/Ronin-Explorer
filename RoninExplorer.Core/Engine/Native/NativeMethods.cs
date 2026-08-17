@@ -39,4 +39,47 @@ public static class NativeMethods
 
     [DllImport("user32.dll")]
     public static extern bool DestroyIcon(IntPtr hIcon);
+
+    // ── Shell file operations (Recycle Bin) ─────────────────────────────────
+    // SHFileOperation with FO_DELETE + FOF_ALLOWUNDO sends items to the Recycle
+    // Bin instead of deleting them permanently. Works for both files and folders.
+    // Declarations copied from Ronin_Disk_Manager's Engine/NativeMethods.cs.
+
+    public const uint FO_DELETE             = 0x0003;
+    public const ushort FOF_ALLOWUNDO       = 0x0040;  // send to Recycle Bin
+    public const ushort FOF_NOCONFIRMATION  = 0x0010;  // we show our own prompt
+    public const ushort FOF_NOERRORUI       = 0x0400;  // suppress OS error dialogs
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct SHFILEOPSTRUCT
+    {
+        public IntPtr hwnd;
+        public uint wFunc;
+        [MarshalAs(UnmanagedType.LPWStr)] public string pFrom;
+        [MarshalAs(UnmanagedType.LPWStr)] public string? pTo;
+        public ushort fFlags;
+        [MarshalAs(UnmanagedType.Bool)] public bool fAnyOperationsAborted;
+        public IntPtr hNameMappings;
+        [MarshalAs(UnmanagedType.LPWStr)] public string? lpszProgressTitle;
+    }
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern int SHFileOperation(ref SHFILEOPSTRUCT lpFileOp);
+
+    // ── Shell change notification ───────────────────────────────────────────
+    // Raw System.IO create/rename/move calls don't tell the shell namespace
+    // anything happened, so other open Explorer windows (and this app's own
+    // nav pane, once it watches folders) go stale. SHChangeNotify tells the
+    // shell to refresh. Not needed by RecycleBin's SHFileOperation path (that
+    // notifies internally) — only by BasicFileOperations' raw-IO paths.
+    public const uint SHCNE_MKDIR         = 0x00000008;
+    public const uint SHCNE_RMDIR         = 0x00000010;
+    public const uint SHCNE_RENAMEFOLDER  = 0x00020000;
+    public const uint SHCNE_RENAMEITEM    = 0x00000001;
+    public const uint SHCNE_CREATE        = 0x00000002;
+    public const uint SHCNE_UPDATEDIR     = 0x00001000;
+    public const uint SHCNF_PATHW         = 0x0005;
+
+    [DllImport("shell32.dll")]
+    public static extern void SHChangeNotify(uint wEventId, uint uFlags, IntPtr dwItem1, IntPtr dwItem2);
 }

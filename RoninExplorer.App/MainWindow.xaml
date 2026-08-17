@@ -11,12 +11,26 @@
                  ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="Mica"
                  WindowCornerPreference="Round"
-                 WindowStartupLocation="CenterScreen">
+                 WindowStartupLocation="CenterScreen"
+                 PreviewKeyDown="MainWindow_PreviewKeyDown">
+    <ui:FluentWindow.Resources>
+        <ContextMenu x:Key="FileItemContextMenu">
+            <MenuItem Header="Open" Click="ContextOpen_Click" />
+            <Separator />
+            <MenuItem Header="Cut" Click="ContextCut_Click" />
+            <MenuItem Header="Copy" Click="ContextCopy_Click" />
+            <MenuItem Header="Paste" Click="ContextPaste_Click" />
+            <Separator />
+            <MenuItem Header="Rename" Click="ContextRename_Click" />
+            <MenuItem Header="Delete" Click="ContextDelete_Click" />
+        </ContextMenu>
+    </ui:FluentWindow.Resources>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <ui:TitleBar Grid.Row="0" Title="Ronin Explorer" />
@@ -24,6 +38,7 @@
         <!-- Win11-style flat command bar: back/forward/up + address bar -->
         <Grid Grid.Row="1" Margin="8,4">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -36,8 +51,10 @@
                     Command="{Binding GoForwardCommand}" ToolTip="Forward" />
             <Button Grid.Column="2" Content="&#8593;" Width="32" Margin="0,0,8,0"
                     Command="{Binding GoUpCommand}" ToolTip="Up" />
+            <Button Grid.Column="3" Content="New folder" Padding="8,0" Margin="0,0,8,0"
+                    Click="NewFolder_Click" ToolTip="New folder (Ctrl+Shift+N)" />
 
-            <TextBox Grid.Column="3" Text="{Binding AddressBarText, Mode=OneWay}"
+            <TextBox Grid.Column="4" Text="{Binding AddressBarText, Mode=OneWay}"
                       IsReadOnly="True" VerticalContentAlignment="Center" Padding="8,4" />
         </Grid>
 
@@ -73,17 +90,63 @@
 
             <ListView x:Name="FileList" Grid.Column="2" Margin="0,0,8,8"
                       ItemsSource="{Binding Items}"
+                      SelectionMode="Extended"
                       BorderThickness="0" Background="Transparent"
                       MouseDoubleClick="FileList_MouseDoubleClick">
+                <!-- Right-click on empty list area: Win10-style flat menu, no "show more" step -->
+                <ListView.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="New folder" Click="NewFolder_Click" />
+                        <MenuItem Header="Paste" Click="EmptyPaste_Click" />
+                        <Separator />
+                        <MenuItem Header="Refresh" Click="Refresh_Click" />
+                    </ContextMenu>
+                </ListView.ContextMenu>
+
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <EventSetter Event="MouseRightButtonDown" Handler="ListViewItem_PreviewMouseRightButtonDown" />
+                        <!-- Right-click on an item: Win10-style flat menu, no "show more" step -->
+                        <Setter Property="ContextMenu" Value="{StaticResource FileItemContextMenu}" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+
                 <ListView.View>
                     <GridView>
                         <GridViewColumn Header="Name" Width="340">
                             <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <StackPanel Orientation="Horizontal">
-                                        <Image Source="{Binding Icon}" Width="16" Height="16" Margin="0,0,6,0" />
-                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
-                                    </StackPanel>
+                                <DataTemplate DataType="{x:Type vm:FileRow}">
+                                    <Grid>
+                                        <StackPanel Orientation="Horizontal">
+                                            <StackPanel.Style>
+                                                <Style TargetType="StackPanel">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                                                            <Setter Property="Visibility" Value="Collapsed" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </StackPanel.Style>
+                                            <Image Source="{Binding Icon}" Width="16" Height="16" Margin="0,0,6,0" />
+                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                        </StackPanel>
+
+                                        <TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}"
+                                                  Loaded="RenameBox_Loaded"
+                                                  KeyDown="RenameBox_KeyDown"
+                                                  LostFocus="RenameBox_LostFocus"
+                                                  Visibility="Collapsed">
+                                            <TextBox.Style>
+                                                <Style TargetType="TextBox">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBox.Style>
+                                        </TextBox>
+                                    </Grid>
                                 </DataTemplate>
                             </GridViewColumn.CellTemplate>
                         </GridViewColumn>
@@ -95,5 +158,9 @@
                 </ListView.View>
             </ListView>
         </Grid>
+
+        <Border Grid.Row="3" Padding="10,5">
+            <TextBlock Text="{Binding StatusMessage}" Opacity="0.7" FontSize="12" />
+        </Border>
     </Grid>
 </ui:FluentWindow>
