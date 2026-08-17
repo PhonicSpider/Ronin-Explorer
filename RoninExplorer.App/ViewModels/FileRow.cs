@@ -23,6 +23,10 @@ public partial class FileRow(FileSystemEntry entry) : ObservableObject
         ? IconCache.GetFolderIcon()
         : IconCache.GetFileIcon(Entry.Extension);
 
+    public ImageSource LargeIcon => Entry.IsDirectory
+        ? IconCache.GetLargeFolderIcon()
+        : IconCache.GetLargeFileIcon(Entry.Extension);
+
     /// <summary>True while this row is showing an inline rename TextBox instead of its name TextBlock.</summary>
     [ObservableProperty]
     private bool _isRenaming;

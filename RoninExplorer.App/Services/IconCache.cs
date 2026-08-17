@@ -19,25 +19,46 @@ public static class IconCache
 {
     private static readonly ConcurrentDictionary<string, ImageSource> Cache = new(StringComparer.OrdinalIgnoreCase);
     private const string FolderKey = "\0folder";
+    private const string LargeFolderKey = "\0folder-large";
+    private const string LargePrefix = "\0large:";
 
     public static ImageSource GetFolderIcon()
         => Cache.GetOrAdd(FolderKey, static _ => ExtractIcon(
             "folder",
-            NativeMethods.FILE_ATTRIBUTE_DIRECTORY));
+            NativeMethods.FILE_ATTRIBUTE_DIRECTORY,
+            NativeMethods.SHGFI_SMALLICON));
 
     public static ImageSource GetFileIcon(string extension)
     {
         var key = string.IsNullOrEmpty(extension) ? string.Empty : extension;
         return Cache.GetOrAdd(key, static ext => ExtractIcon(
             string.IsNullOrEmpty(ext) ? "file" : "file" + ext,
-            NativeMethods.FILE_ATTRIBUTE_NORMAL));
+            NativeMethods.FILE_ATTRIBUTE_NORMAL,
+            NativeMethods.SHGFI_SMALLICON));
     }
 
-    private static ImageSource ExtractIcon(string fakePath, uint attributes)
+    /// <summary>32x32 folder icon, for view modes (e.g. Large Icons) that need more than a 16x16 list glyph.</summary>
+    public static ImageSource GetLargeFolderIcon()
+        => Cache.GetOrAdd(LargeFolderKey, static _ => ExtractIcon(
+            "folder",
+            NativeMethods.FILE_ATTRIBUTE_DIRECTORY,
+            NativeMethods.SHGFI_LARGEICON));
+
+    /// <summary>32x32 file-type icon, for view modes (e.g. Large Icons) that need more than a 16x16 list glyph.</summary>
+    public static ImageSource GetLargeFileIcon(string extension)
+    {
+        var key = LargePrefix + (string.IsNullOrEmpty(extension) ? string.Empty : extension);
+        return Cache.GetOrAdd(key, _ => ExtractIcon(
+            string.IsNullOrEmpty(extension) ? "file" : "file" + extension,
+            NativeMethods.FILE_ATTRIBUTE_NORMAL,
+            NativeMethods.SHGFI_LARGEICON));
+    }
+
+    private static ImageSource ExtractIcon(string fakePath, uint attributes, uint sizeFlag)
     {
         var info = new NativeMethods.SHFILEINFO();
         var flags = NativeMethods.SHGFI_ICON
-                  | NativeMethods.SHGFI_SMALLICON
+                  | sizeFlag
                   | NativeMethods.SHGFI_USEFILEATTRIBUTES;
 
         var result = NativeMethods.SHGetFileInfo(fakePath, attributes, ref info, (uint)System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.SHFILEINFO>(), flags);

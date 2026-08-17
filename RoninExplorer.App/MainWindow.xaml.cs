@@ -147,7 +147,35 @@ public partial class MainWindow : FluentWindow
 
     private async void ContextDelete_Click(object sender, RoutedEventArgs e) => await _viewModel.DeleteAsync(SelectedRows());
 
+    private void ContextProperties_Click(object sender, RoutedEventArgs e)
+    {
+        if (FileList.SelectedItem is FileRow row)
+            MainViewModel.ShowProperties(row);
+    }
+
     private async void NewFolder_Click(object sender, RoutedEventArgs e) => await _viewModel.NewFolderAsync();
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await _viewModel.RefreshAsync();
+
+    // ── View modes and column sorting (M3) ──────────────────────────────────
+
+    private void ViewModeDetails_Click(object sender, RoutedEventArgs e) => _viewModel.ViewMode = FileListViewMode.Details;
+
+    private void ViewModeLargeIcons_Click(object sender, RoutedEventArgs e) => _viewModel.ViewMode = FileListViewMode.LargeIcons;
+
+    private void ColumnHeader_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not GridViewColumnHeader { Tag: string tag }) return;
+        if (Enum.TryParse<FileSortColumn>(tag, out var column))
+            _viewModel.SortBy(column);
+    }
+
+    // ── Search (M4) ──────────────────────────────────────────────────────────
+
+    private async void SearchBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter) return;
+        e.Handled = true;
+        await _viewModel.SearchAsync();
+    }
 }

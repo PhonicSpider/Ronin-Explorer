@@ -23,7 +23,107 @@
             <Separator />
             <MenuItem Header="Rename" Click="ContextRename_Click" />
             <MenuItem Header="Delete" Click="ContextDelete_Click" />
+            <Separator />
+            <MenuItem Header="Properties" Click="ContextProperties_Click" />
         </ContextMenu>
+
+        <!-- Name-cell template shared by both Details and Large-icons views: an
+             icon + name, swapping to an inline rename TextBox while IsRenaming. -->
+        <DataTemplate x:Key="NameCellTemplate" DataType="{x:Type vm:FileRow}">
+            <Grid>
+                <StackPanel Orientation="Horizontal">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <Image Source="{Binding Icon}" Width="16" Height="16" Margin="0,0,6,0" />
+                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}"
+                          Loaded="RenameBox_Loaded"
+                          KeyDown="RenameBox_KeyDown"
+                          LostFocus="RenameBox_LostFocus"
+                          Visibility="Collapsed">
+                    <TextBox.Style>
+                        <Style TargetType="TextBox">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBox.Style>
+                </TextBox>
+            </Grid>
+        </DataTemplate>
+
+        <GridView x:Key="DetailsGridView">
+            <GridViewColumn Width="340" CellTemplate="{StaticResource NameCellTemplate}">
+                <GridViewColumn.Header>
+                    <GridViewColumnHeader Content="Name" Tag="Name" Click="ColumnHeader_Click" />
+                </GridViewColumn.Header>
+            </GridViewColumn>
+            <GridViewColumn Width="150" DisplayMemberBinding="{Binding DateModified, StringFormat='{}{0:M/d/yyyy h:mm tt}'}">
+                <GridViewColumn.Header>
+                    <GridViewColumnHeader Content="Date modified" Tag="DateModified" Click="ColumnHeader_Click" />
+                </GridViewColumn.Header>
+            </GridViewColumn>
+            <GridViewColumn Width="140" DisplayMemberBinding="{Binding FileType}">
+                <GridViewColumn.Header>
+                    <GridViewColumnHeader Content="Type" Tag="Type" Click="ColumnHeader_Click" />
+                </GridViewColumn.Header>
+            </GridViewColumn>
+            <GridViewColumn Width="100" DisplayMemberBinding="{Binding SizeDisplay}">
+                <GridViewColumn.Header>
+                    <GridViewColumnHeader Content="Size" Tag="Size" Click="ColumnHeader_Click" />
+                </GridViewColumn.Header>
+            </GridViewColumn>
+        </GridView>
+
+        <ItemsPanelTemplate x:Key="LargeIconsPanel">
+            <WrapPanel Orientation="Horizontal" />
+        </ItemsPanelTemplate>
+
+        <DataTemplate x:Key="LargeIconsItemTemplate" DataType="{x:Type vm:FileRow}">
+            <StackPanel Orientation="Vertical" Width="96" Margin="6" HorizontalAlignment="Center">
+                <Image Source="{Binding LargeIcon}" Width="32" Height="32" Margin="0,4" HorizontalAlignment="Center" />
+                <Grid>
+                    <TextBlock Text="{Binding Name}" TextWrapping="Wrap" TextAlignment="Center" MaxHeight="36" TextTrimming="CharacterEllipsis">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}"
+                              Loaded="RenameBox_Loaded"
+                              KeyDown="RenameBox_KeyDown"
+                              LostFocus="RenameBox_LostFocus"
+                              TextAlignment="Center"
+                              Visibility="Collapsed">
+                        <TextBox.Style>
+                            <Style TargetType="TextBox">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRenaming}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
+                </Grid>
+            </StackPanel>
+        </DataTemplate>
     </ui:FluentWindow.Resources>
     <Grid>
         <Grid.RowDefinitions>
@@ -43,6 +143,9 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="220" />
             </Grid.ColumnDefinitions>
 
             <Button Grid.Column="0" Content="&#8592;" Width="32" Margin="0,0,4,0"
@@ -56,6 +159,17 @@
 
             <TextBox Grid.Column="4" Text="{Binding AddressBarText, Mode=OneWay}"
                       IsReadOnly="True" VerticalContentAlignment="Center" Padding="8,4" />
+
+            <Button Grid.Column="5" Content="Details" Padding="8,0" Margin="8,0,4,0"
+                    Click="ViewModeDetails_Click" ToolTip="Details view" />
+            <Button Grid.Column="6" Content="Large icons" Padding="8,0" Margin="0,0,8,0"
+                    Click="ViewModeLargeIcons_Click" ToolTip="Large icons view" />
+
+            <TextBox x:Name="SearchBox" Grid.Column="7"
+                      Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                      VerticalContentAlignment="Center" Padding="8,4"
+                      ToolTip="Search (Enter to run)"
+                      KeyDown="SearchBox_KeyDown" />
         </Grid>
 
         <!-- Nav pane (left) + file list (right) -->
@@ -92,7 +206,20 @@
                       ItemsSource="{Binding Items}"
                       SelectionMode="Extended"
                       BorderThickness="0" Background="Transparent"
+                      View="{StaticResource DetailsGridView}"
                       MouseDoubleClick="FileList_MouseDoubleClick">
+                <ListView.Style>
+                    <Style TargetType="ListView">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ViewMode}" Value="LargeIcons">
+                                <Setter Property="View" Value="{x:Null}" />
+                                <Setter Property="ItemsPanel" Value="{StaticResource LargeIconsPanel}" />
+                                <Setter Property="ItemTemplate" Value="{StaticResource LargeIconsItemTemplate}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListView.Style>
+
                 <!-- Right-click on empty list area: Win10-style flat menu, no "show more" step -->
                 <ListView.ContextMenu>
                     <ContextMenu>
@@ -111,51 +238,6 @@
                     </Style>
                 </ListView.ItemContainerStyle>
 
-                <ListView.View>
-                    <GridView>
-                        <GridViewColumn Header="Name" Width="340">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate DataType="{x:Type vm:FileRow}">
-                                    <Grid>
-                                        <StackPanel Orientation="Horizontal">
-                                            <StackPanel.Style>
-                                                <Style TargetType="StackPanel">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsRenaming}" Value="True">
-                                                            <Setter Property="Visibility" Value="Collapsed" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </StackPanel.Style>
-                                            <Image Source="{Binding Icon}" Width="16" Height="16" Margin="0,0,6,0" />
-                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
-                                        </StackPanel>
-
-                                        <TextBox Text="{Binding EditName, UpdateSourceTrigger=PropertyChanged}"
-                                                  Loaded="RenameBox_Loaded"
-                                                  KeyDown="RenameBox_KeyDown"
-                                                  LostFocus="RenameBox_LostFocus"
-                                                  Visibility="Collapsed">
-                                            <TextBox.Style>
-                                                <Style TargetType="TextBox">
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsRenaming}" Value="True">
-                                                            <Setter Property="Visibility" Value="Visible" />
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </TextBox.Style>
-                                        </TextBox>
-                                    </Grid>
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                        <GridViewColumn Header="Date modified" Width="150"
-                                        DisplayMemberBinding="{Binding DateModified, StringFormat='{}{0:M/d/yyyy h:mm tt}'}" />
-                        <GridViewColumn Header="Type" Width="140" DisplayMemberBinding="{Binding FileType}" />
-                        <GridViewColumn Header="Size" Width="100" DisplayMemberBinding="{Binding SizeDisplay}" />
-                    </GridView>
-                </ListView.View>
             </ListView>
         </Grid>
 

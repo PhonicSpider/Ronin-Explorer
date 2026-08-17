@@ -5,6 +5,7 @@ using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using RoninExplorer.Core.Engine;
+using RoninExplorer.Core.Models;
 
 namespace RoninExplorer.App.ViewModels;
 
@@ -27,13 +28,32 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
+    [ObservableProperty]
+    private FileListViewMode _viewMode = FileListViewMode.Details;
+
+    [ObservableProperty]
+    private FileSortColumn _sortColumn = FileSortColumn.Name;
+
+    [ObservableProperty]
+    private bool _sortAscending = true;
+
+    [ObservableProperty]
+    private string _searchQuery = string.Empty;
+
+    private readonly VolumeIndexManager _volumeIndex = new();
+    private readonly SearchIndexEngine _searchEngine;
+
     public ObservableCollection<FileRow> Items { get; } = [];
     public ObservableCollection<NavNode> NavRoots { get; } = [];
 
     public MainViewModel()
     {
+        _searchEngine = new SearchIndexEngine(_volumeIndex);
         BuildNavPane();
         _ = NavigateToAsync(ThisPcPath, recordHistory: false);
+        // Elevation-gated inside — a no-op (instant) when not running as admin,
+        // so this never blocks or delays startup for the common case.
+        _ = _volumeIndex.BuildAllAsync();
     }
 
     private void BuildNavPane()
@@ -51,6 +71,8 @@ public partial class MainViewModel : ObservableObject
 
     private async Task NavigateToAsync(string path, bool recordHistory)
     {
+        SearchQuery = string.Empty; // leaving search results (if any) for a normal folder listing
+
         if (recordHistory && !string.Equals(CurrentPath, path, StringComparison.OrdinalIgnoreCase))
         {
             _back.Push(CurrentPath);
@@ -72,6 +94,7 @@ public partial class MainViewModel : ObservableObject
             Items.Clear();
             foreach (var entry in entries)
                 Items.Add(new FileRow(entry));
+            ApplySort();
         }
         catch (IOException)
         {
@@ -92,6 +115,47 @@ public partial class MainViewModel : ObservableObject
             _ = NavigateToAsync(row.FullPath, recordHistory: true);
         else
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(row.FullPath) { UseShellExecute = true });
+    }
+
+    /// <summary>Opens the native Windows Properties dialog for a single item — exactly what Explorer's own "Properties" does.</summary>
+    public static void ShowProperties(FileRow row)
+        => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(row.FullPath)
+        {
+            UseShellExecute = true,
+            Verb = "properties",
+        });
+
+    // ── Sorting — folders always group before files, matching Explorer, with
+    // the clicked column as the secondary key within each group ──────────────
+
+    public void SortBy(FileSortColumn column)
+    {
+        if (SortColumn == column) SortAscending = !SortAscending;
+        else { SortColumn = column; SortAscending = true; }
+        ApplySort();
+    }
+
+    private void ApplySort()
+    {
+        IOrderedEnumerable<FileRow> ordered = SortColumn switch
+        {
+            FileSortColumn.DateModified => SortAscending
+                ? Items.OrderByDescending(r => r.IsDirectory).ThenBy(r => r.DateModified)
+                : Items.OrderByDescending(r => r.IsDirectory).ThenByDescending(r => r.DateModified),
+            FileSortColumn.Type => SortAscending
+                ? Items.OrderByDescending(r => r.IsDirectory).ThenBy(r => r.FileType, StringComparer.OrdinalIgnoreCase)
+                : Items.OrderByDescending(r => r.IsDirectory).ThenByDescending(r => r.FileType, StringComparer.OrdinalIgnoreCase),
+            FileSortColumn.Size => SortAscending
+                ? Items.OrderByDescending(r => r.IsDirectory).ThenBy(r => r.Entry.SizeBytes)
+                : Items.OrderByDescending(r => r.IsDirectory).ThenByDescending(r => r.Entry.SizeBytes),
+            _ => SortAscending
+                ? Items.OrderByDescending(r => r.IsDirectory).ThenBy(r => r.Name, StringComparer.OrdinalIgnoreCase)
+                : Items.OrderByDescending(r => r.IsDirectory).ThenByDescending(r => r.Name, StringComparer.OrdinalIgnoreCase),
+        };
+
+        var reordered = ordered.ToList();
+        Items.Clear();
+        foreach (var row in reordered) Items.Add(row);
     }
 
     private bool CanGoBack() => _back.Count > 0;
@@ -223,6 +287,44 @@ public partial class MainViewModel : ObservableObject
             BasicFileOperations.CopyToFolder(paths, CurrentPath);
 
         await NavigateToAsync(CurrentPath, recordHistory: false);
+    }
+
+    // ── Search (M4) — instant results from the MFT index when elevated and
+    // available, falling back to LiveWalkSearchEngine otherwise ────────────
+
+    public async Task SearchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(SearchQuery))
+        {
+            await NavigateToAsync(CurrentPath, recordHistory: false);
+            return;
+        }
+
+        var query = SearchQuery; // NavigateToAsync (called on empty query) would otherwise clear it out from under us
+        IsLoading = true;
+        try
+        {
+            var hits = await _searchEngine.SearchAsync(query);
+
+            Items.Clear();
+            foreach (var hit in hits)
+                Items.Add(new FileRow(new FileSystemEntry
+                {
+                    Name = hit.Name,
+                    FullPath = hit.FullPath,
+                    IsDirectory = hit.IsDirectory,
+                    SizeBytes = hit.SizeBytes,
+                    DateModified = hit.DateModified,
+                    Extension = hit.IsDirectory ? string.Empty : Path.GetExtension(hit.Name),
+                }));
+
+            AddressBarText = $"Search results for \"{query}\"" + (_volumeIndex.HasAnyIndex ? "" : " (not elevated — full-disk index unavailable, searched live instead)");
+            ApplySort();
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     private static bool TryGetPreferredDropEffect(out DragDropEffects effect)
