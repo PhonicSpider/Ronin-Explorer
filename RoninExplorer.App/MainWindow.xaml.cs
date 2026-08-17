@@ -178,4 +178,29 @@ public partial class MainWindow : FluentWindow
         e.Handled = true;
         await _viewModel.SearchAsync();
     }
+
+    // ── Details/Tools panel (M5) ────────────────────────────────────────────
+
+    private void FileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        => _viewModel.UpdateSelection(SelectedRows());
+
+    private void PanelModeDetails_Click(object sender, RoutedEventArgs e) => _viewModel.PanelMode = DetailsToolsMode.Details;
+
+    private void PanelModeTools_Click(object sender, RoutedEventArgs e) => _viewModel.PanelMode = DetailsToolsMode.Tools;
+
+    private async void CalculateFolderSize_Click(object sender, RoutedEventArgs e) => await _viewModel.CalculateFolderSizeAsync();
+
+    private async void CalculateHash_Click(object sender, RoutedEventArgs e) => await _viewModel.CalculateHashAsync();
+
+    private async void FindDuplicates_Click(object sender, RoutedEventArgs e) => await _viewModel.FindDuplicatesInCurrentFolderAsync();
+
+    private async void DeleteDuplicateGroup_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: RoninExplorer.Core.Engine.DuplicateFinder.DuplicateGroup group })
+            await _viewModel.DeleteDuplicateGroupAsync(group);
+    }
+
+    private async void ScanCleanup_Click(object sender, RoutedEventArgs e) => await _viewModel.ScanCleanupAsync();
+
+    private async void DeleteCleanupResults_Click(object sender, RoutedEventArgs e) => await _viewModel.DeleteCleanupResultsAsync();
 }

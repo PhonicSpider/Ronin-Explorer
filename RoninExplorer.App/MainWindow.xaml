@@ -14,6 +14,9 @@
                  WindowStartupLocation="CenterScreen"
                  PreviewKeyDown="MainWindow_PreviewKeyDown">
     <ui:FluentWindow.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+        <local:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
+
         <ContextMenu x:Key="FileItemContextMenu">
             <MenuItem Header="Open" Click="ContextOpen_Click" />
             <Separator />
@@ -172,12 +175,14 @@
                       KeyDown="SearchBox_KeyDown" />
         </Grid>
 
-        <!-- Nav pane (left) + file list (right) -->
+        <!-- Nav pane (left) + file list (center) + Details/Tools panel (right) -->
         <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="220" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="280" />
             </Grid.ColumnDefinitions>
 
             <TreeView x:Name="NavTree" Grid.Column="0" Margin="8,0,0,8"
@@ -207,7 +212,8 @@
                       SelectionMode="Extended"
                       BorderThickness="0" Background="Transparent"
                       View="{StaticResource DetailsGridView}"
-                      MouseDoubleClick="FileList_MouseDoubleClick">
+                      MouseDoubleClick="FileList_MouseDoubleClick"
+                      SelectionChanged="FileList_SelectionChanged">
                 <ListView.Style>
                     <Style TargetType="ListView">
                         <Style.Triggers>
@@ -239,6 +245,147 @@
                 </ListView.ItemContainerStyle>
 
             </ListView>
+
+            <GridSplitter Grid.Column="3" Width="4" HorizontalAlignment="Stretch"
+                          Background="Transparent" />
+
+            <!-- Details/Tools toggle panel -->
+            <Grid Grid.Column="4" Margin="0,0,8,8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+                    <Button Content="Details" Padding="8,2" Margin="0,0,4,0" Click="PanelModeDetails_Click" ToolTip="Details" />
+                    <Button Content="Tools" Padding="8,2" Click="PanelModeTools_Click" ToolTip="Tools" />
+                </StackPanel>
+
+                <!-- Details body -->
+                <StackPanel Grid.Row="1">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding PanelMode}" Value="Tools">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+
+                    <TextBlock Text="No selection" Opacity="0.6">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DetailsSelectedCount}" Value="0">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <StackPanel DataContext="{Binding DetailsSingleItem}">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="{Binding Name}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,4" />
+                        <TextBlock Text="{Binding FullPath}" TextWrapping="Wrap" Opacity="0.7" FontSize="11" Margin="0,0,0,8" />
+                        <TextBlock Text="{Binding FileType}" Margin="0,0,0,4" />
+                        <TextBlock Text="{Binding DateModified, StringFormat='Modified: {0:g}'}" Margin="0,0,0,4" />
+                        <TextBlock Text="{Binding SizeDisplay, StringFormat='Size: {0}'}" Margin="0,0,0,4" />
+
+                        <Button Content="Calculate folder size" Margin="0,8,0,4" HorizontalAlignment="Left"
+                                Click="CalculateFolderSize_Click" Visibility="{Binding IsDirectory, Converter={StaticResource BoolToVisibility}}" />
+                        <Button Content="Calculate SHA-256 hash" Margin="0,4,0,4" HorizontalAlignment="Left"
+                                Click="CalculateHash_Click" Visibility="{Binding IsDirectory, Converter={StaticResource InverseBoolToVisibility}}" />
+                    </StackPanel>
+
+                    <TextBlock Text="{Binding DetailsFolderSizeDisplay}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding DetailsHashDisplay}" Margin="0,4,0,0" TextWrapping="Wrap" FontFamily="Consolas" FontSize="11" />
+
+                    <TextBlock Margin="0,4,0,0" TextWrapping="Wrap">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding DetailsSelectedCount}" Value="0">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding DetailsSelectedCount}" Value="1">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                        <Run Text="{Binding DetailsSelectedCount, Mode=OneWay}" />
+                        <Run Text=" items selected, total " />
+                        <Run Text="{Binding DetailsSelectedTotalSizeDisplay, Mode=OneWay}" />
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- Tools body -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding PanelMode}" Value="Details">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+
+                        <TextBlock Text="Duplicate finder" FontWeight="Bold" Margin="0,0,0,4" />
+                        <Button Content="Find duplicates in this folder" HorizontalAlignment="Left" Margin="0,0,0,6"
+                                Click="FindDuplicates_Click" />
+                        <ItemsControl ItemsSource="{Binding DuplicateGroups}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="Gray" BorderThickness="0,0,0,1" Padding="0,4" Margin="0,0,0,4">
+                                        <StackPanel>
+                                            <TextBlock Text="{Binding Count, StringFormat='{}{0} copies'}" FontWeight="SemiBold" />
+                                            <ItemsControl ItemsSource="{Binding Files}">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding FullPath}" TextWrapping="Wrap" FontSize="11" Opacity="0.8" />
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <Button Content="Keep first, delete rest" HorizontalAlignment="Left" Margin="0,4,0,0"
+                                                    Click="DeleteDuplicateGroup_Click" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Text="Age-based cleanup" FontWeight="Bold" Margin="0,12,0,4" />
+                        <TextBlock Text="Pattern (e.g. *.tmp)" Opacity="0.7" FontSize="11" />
+                        <TextBox Text="{Binding CleanupPattern, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,4" />
+                        <TextBlock Text="Older than (days)" Opacity="0.7" FontSize="11" />
+                        <TextBox Text="{Binding CleanupOlderThanDays, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,6" />
+                        <Button Content="Scan" HorizontalAlignment="Left" Margin="0,0,0,6" Click="ScanCleanup_Click" />
+                        <ItemsControl ItemsSource="{Binding CleanupResults}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding FullPath}" TextWrapping="Wrap" FontSize="11" Opacity="0.8" Margin="0,0,0,2" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button Content="Delete listed files" HorizontalAlignment="Left" Margin="0,6,0,0" Click="DeleteCleanupResults_Click" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
         </Grid>
 
         <Border Grid.Row="3" Padding="10,5">

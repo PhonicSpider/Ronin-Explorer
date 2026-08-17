@@ -40,6 +40,49 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _searchQuery = string.Empty;
 
+    // ── Details/Tools panel (M5) ────────────────────────────────────────────
+
+    [ObservableProperty]
+    private DetailsToolsMode _panelMode = DetailsToolsMode.Details;
+
+    [ObservableProperty]
+    private FileRow? _detailsSingleItem;
+
+    [ObservableProperty]
+    private int _detailsSelectedCount;
+
+    [ObservableProperty]
+    private long _detailsSelectedTotalSize;
+
+    [ObservableProperty]
+    private string _detailsFolderSizeDisplay = string.Empty;
+
+    [ObservableProperty]
+    private bool _isCalculatingFolderSize;
+
+    [ObservableProperty]
+    private string _detailsHashDisplay = string.Empty;
+
+    [ObservableProperty]
+    private bool _isCalculatingHash;
+
+    [ObservableProperty]
+    private bool _isFindingDuplicates;
+
+    [ObservableProperty]
+    private string _cleanupPattern = "*.tmp";
+
+    [ObservableProperty]
+    private int _cleanupOlderThanDays = 30;
+
+    [ObservableProperty]
+    private bool _isScanningCleanup;
+
+    public ObservableCollection<DuplicateFinder.DuplicateGroup> DuplicateGroups { get; } = [];
+    public ObservableCollection<SearchHit> CleanupResults { get; } = [];
+
+    public string DetailsSelectedTotalSizeDisplay => FileSystemHelpers.FormatBytes(DetailsSelectedTotalSize);
+
     private readonly VolumeIndexManager _volumeIndex = new();
     private readonly SearchIndexEngine _searchEngine;
 
@@ -325,6 +368,116 @@ public partial class MainViewModel : ObservableObject
         {
             IsLoading = false;
         }
+    }
+
+    // ── Details/Tools panel (M5) ────────────────────────────────────────────
+    // Details: extended metadata beyond stock Explorer, computed on demand
+    // (recursive folder size, SHA-256 hash) rather than eagerly for every
+    // selection change, since both can be slow on a big folder/file. Tools:
+    // selection/folder-scoped actions reusing DuplicateFinder/CleanupScanner.
+
+    public void UpdateSelection(IReadOnlyList<FileRow> rows)
+    {
+        DetailsSelectedCount = rows.Count;
+        DetailsSelectedTotalSize = rows.Sum(r => r.Entry.SizeBytes);
+        DetailsSingleItem = rows.Count == 1 ? rows[0] : null;
+        DetailsFolderSizeDisplay = string.Empty;
+        DetailsHashDisplay = string.Empty;
+        OnPropertyChanged(nameof(DetailsSelectedTotalSizeDisplay));
+    }
+
+    public async Task CalculateFolderSizeAsync()
+    {
+        if (DetailsSingleItem is not { IsDirectory: true } row) return;
+        IsCalculatingFolderSize = true;
+        try
+        {
+            var size = await FolderListingService.GetFolderSizeAsync(row.FullPath);
+            DetailsFolderSizeDisplay = FileSystemHelpers.FormatBytes(size);
+        }
+        finally
+        {
+            IsCalculatingFolderSize = false;
+        }
+    }
+
+    public async Task CalculateHashAsync()
+    {
+        if (DetailsSingleItem is not { IsDirectory: false } row) return;
+        IsCalculatingHash = true;
+        try
+        {
+            DetailsHashDisplay = await Task.Run(() =>
+            {
+                using var stream = File.OpenRead(row.FullPath);
+                return Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream));
+            });
+        }
+        catch (Exception ex)
+        {
+            DetailsHashDisplay = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            IsCalculatingHash = false;
+        }
+    }
+
+    public async Task FindDuplicatesInCurrentFolderAsync()
+    {
+        if (!CanMutateCurrentFolder()) return;
+        IsFindingDuplicates = true;
+        try
+        {
+            var files = await FolderListingService.ListFilesRecursiveAsync(CurrentPath);
+            var groups = await DuplicateFinder.FindDuplicatesAsync(files);
+            DuplicateGroups.Clear();
+            foreach (var g in groups) DuplicateGroups.Add(g);
+        }
+        finally
+        {
+            IsFindingDuplicates = false;
+        }
+    }
+
+    /// <summary>Recycles every file in the group except the first (kept as the surviving copy).</summary>
+    public async Task DeleteDuplicateGroupAsync(DuplicateFinder.DuplicateGroup group)
+    {
+        foreach (var file in group.Files.Skip(1))
+        {
+            if (!RecycleBin.Send(file.FullPath, out var error))
+                StatusMessage = error;
+        }
+        await FindDuplicatesInCurrentFolderAsync();
+        await RefreshAsync();
+    }
+
+    public async Task ScanCleanupAsync()
+    {
+        if (!CanMutateCurrentFolder()) return;
+        IsScanningCleanup = true;
+        try
+        {
+            var results = await CleanupScanner.FindAsync(CurrentPath, CleanupPattern, CleanupOlderThanDays, recurse: true);
+            CleanupResults.Clear();
+            foreach (var hit in results) CleanupResults.Add(hit);
+        }
+        finally
+        {
+            IsScanningCleanup = false;
+        }
+    }
+
+    public async Task DeleteCleanupResultsAsync()
+    {
+        foreach (var hit in CleanupResults.ToList())
+        {
+            if (RecycleBin.Send(hit.FullPath, out var error))
+                CleanupResults.Remove(hit);
+            else
+                StatusMessage = error;
+        }
+        await RefreshAsync();
     }
 
     private static bool TryGetPreferredDropEffect(out DragDropEffects effect)

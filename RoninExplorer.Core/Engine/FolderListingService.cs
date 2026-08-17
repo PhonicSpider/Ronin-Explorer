@@ -83,4 +83,56 @@ public static class FolderListingService
         var label = string.IsNullOrWhiteSpace(drive.VolumeLabel) ? "Local Disk" : drive.VolumeLabel;
         return $"{label} ({root})";
     }
+
+    /// <summary>Recursively lists every file (not directories) under <paramref name="rootPath"/>, skipping reparse points. Used by the Tools panel's duplicate-finder and cleanup-scanner.</summary>
+    public static Task<List<FileSystemEntry>> ListFilesRecursiveAsync(string rootPath, CancellationToken ct = default)
+        => Task.Run(() =>
+        {
+            var results = new List<FileSystemEntry>();
+            var dirs = new Stack<string>();
+            dirs.Push(rootPath);
+
+            while (dirs.Count > 0)
+            {
+                ct.ThrowIfCancellationRequested();
+                DirectoryInfo di;
+                try { di = new DirectoryInfo(dirs.Pop()); } catch { continue; }
+
+                IEnumerable<FileSystemInfo> entries;
+                try { entries = di.EnumerateFileSystemInfos(); } catch { continue; }
+
+                foreach (var entry in entries)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (entry is DirectoryInfo sub)
+                    {
+                        if (!FileSystemHelpers.IsReparsePoint(sub)) dirs.Push(sub.FullName);
+                    }
+                    else if (entry is FileInfo fi)
+                    {
+                        try
+                        {
+                            results.Add(new FileSystemEntry
+                            {
+                                Name = fi.Name,
+                                FullPath = fi.FullName,
+                                IsDirectory = false,
+                                SizeBytes = fi.Length,
+                                DateModified = fi.LastWriteTime,
+                                DateCreated = fi.CreationTime,
+                                Extension = fi.Extension,
+                                Attributes = fi.Attributes,
+                            });
+                        }
+                        catch { /* inaccessible file — skip */ }
+                    }
+                }
+            }
+
+            return results;
+        }, ct);
+
+    /// <summary>Total size of every file under <paramref name="rootPath"/> — the recursive folder size Explorer deliberately omits because it's expensive without an index; cheap enough here for the Details panel's on-demand use.</summary>
+    public static async Task<long> GetFolderSizeAsync(string rootPath, CancellationToken ct = default)
+        => (await ListFilesRecursiveAsync(rootPath, ct)).Sum(f => f.SizeBytes);
 }

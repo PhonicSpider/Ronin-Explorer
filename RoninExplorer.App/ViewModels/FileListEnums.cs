@@ -13,3 +13,9 @@ public enum FileSortColumn
     Type,
     Size,
 }
+
+public enum DetailsToolsMode
+{
+    Details,
+    Tools,
+}
