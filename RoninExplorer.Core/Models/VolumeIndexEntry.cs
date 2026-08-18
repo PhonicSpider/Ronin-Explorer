@@ -6,4 +6,8 @@ public sealed class VolumeIndexEntry
     public required string Name { get; init; }
     public required string FullPath { get; init; }
     public required bool IsDirectory { get; init; }
+
+    /// <summary>NTFS file reference number — the key VolumeIndexManager's incremental refresh uses to add/update/remove entries without a full rebuild.</summary>
+    public ulong Frn { get; init; }
+    public ulong ParentFrn { get; init; }
 }

@@ -144,4 +144,65 @@ public static class NativeMethods
         int nOutBufferSize,
         out uint lpBytesReturned,
         IntPtr lpOverlapped);
+
+    // ── USN journal (incremental delta reads) ───────────────────────────────
+    // FSCTL_QUERY_USN_JOURNAL gets the journal's identity and current cursor;
+    // FSCTL_READ_USN_JOURNAL then reads only the records since a given cursor,
+    // instead of re-walking the whole volume — the piece that lets
+    // VolumeIndexManager keep its index live without a full rebuild.
+    // Same DeviceIoControl native entry point, declared again with different
+    // parameter types (a standard P/Invoke technique — this is ordinary struct
+    // marshaling, not COM vtable dispatch, so a mistake here fails with a
+    // clear DeviceIoControl error rather than silently misbehaving).
+
+    public const uint FSCTL_QUERY_USN_JOURNAL = 0x900F4;
+    public const uint FSCTL_READ_USN_JOURNAL  = 0x900BB;
+
+    // USN_REASON_* flags (winioctl.h) — only the one this code checks.
+    public const uint USN_REASON_FILE_DELETE = 0x00000200;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct USN_JOURNAL_DATA_V0
+    {
+        public ulong UsnJournalID;
+        public long FirstUsn;
+        public long NextUsn;
+        public long LowestValidUsn;
+        public long MaxUsn;
+        public ulong MaximumSize;
+        public ulong AllocationDelta;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct READ_USN_JOURNAL_DATA_V0
+    {
+        public long StartUsn;
+        public uint ReasonMask;
+        public uint ReturnOnlyOnClose;
+        public ulong Timeout;
+        public ulong BytesToWaitFor;
+        public ulong UsnJournalID;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true, EntryPoint = "DeviceIoControl")]
+    public static extern bool DeviceIoControlQueryJournal(
+        SafeFileHandle hDevice,
+        uint dwIoControlCode,
+        IntPtr lpInBuffer,
+        int nInBufferSize,
+        out USN_JOURNAL_DATA_V0 lpOutBuffer,
+        int nOutBufferSize,
+        out uint lpBytesReturned,
+        IntPtr lpOverlapped);
+
+    [DllImport("kernel32.dll", SetLastError = true, EntryPoint = "DeviceIoControl")]
+    public static extern bool DeviceIoControlReadJournal(
+        SafeFileHandle hDevice,
+        uint dwIoControlCode,
+        ref READ_USN_JOURNAL_DATA_V0 lpInBuffer,
+        int nInBufferSize,
+        IntPtr lpOutBuffer,
+        int nOutBufferSize,
+        out uint lpBytesReturned,
+        IntPtr lpOverlapped);
 }
