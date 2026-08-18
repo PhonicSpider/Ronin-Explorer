@@ -136,14 +136,40 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <ui:TitleBar Grid.Row="0" Title="Ronin Explorer" />
 
+        <!-- Tab strip (M8) — visual polish is a later pass; this is functional -->
+        <DockPanel Grid.Row="1" Margin="8,4,8,0" LastChildFill="False">
+            <ItemsControl ItemsSource="{Binding Tabs}" DockPanel.Dock="Left">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="{x:Type vm:TabState}">
+                        <Border Margin="0,0,4,0" Padding="10,4" CornerRadius="4"
+                                MouseLeftButtonUp="TabItem_MouseLeftButtonUp"
+                                Background="{DynamicResource PanelBackgroundBrush}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="{Binding Title}" VerticalAlignment="Center" MaxWidth="140" TextTrimming="CharacterEllipsis" />
+                                <Button Content="&#10005;" Margin="8,0,0,0" Padding="2" FontSize="9"
+                                        Click="TabClose_Click" ToolTip="Close tab (Ctrl+W)" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button DockPanel.Dock="Left" Content="+" Width="28" Click="NewTab_Click" ToolTip="New tab (Ctrl+T)" />
+        </DockPanel>
+
         <!-- Win11-style flat command bar: back/forward/up + address bar -->
-        <Grid Grid.Row="1" Margin="8,4">
+        <Grid Grid.Row="2" Margin="8,4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -193,7 +219,7 @@
         </Grid>
 
         <!-- Nav pane (left) + file list (center) + Details/Tools panel (right) -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="220" />
                 <ColumnDefinition Width="Auto" />
@@ -417,7 +443,7 @@
             </Grid>
         </Grid>
 
-        <Border Grid.Row="3" Padding="10,5">
+        <Border Grid.Row="4" Padding="10,5">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />

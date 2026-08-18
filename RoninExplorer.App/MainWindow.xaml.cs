@@ -14,6 +14,7 @@ using Wpf.Ui.Controls;
 using TextBox = System.Windows.Controls.TextBox;
 using ListViewItem = System.Windows.Controls.ListViewItem;
 using TreeViewItem = System.Windows.Controls.TreeViewItem;
+using Button = System.Windows.Controls.Button;
 
 namespace RoninExplorer.App;
 
@@ -28,6 +29,7 @@ public partial class MainWindow : FluentWindow
         InitializeComponent();
         SystemThemeWatcher.Watch(this);
         DataContext = _viewModel;
+        _viewModel.CloseWindowRequested += () => Close();
 
         // Forces early creation of the window's HWND so FileOperationService
         // has a real owner to hang its native progress/conflict dialogs off of.
@@ -79,10 +81,22 @@ public partial class MainWindow : FluentWindow
         // Delete/Ctrl+C/etc. instead of the app-level shortcuts stealing them.
         if (e.OriginalSource is TextBox) return;
 
-        // Select All is fixed (like Explorer's), not part of the rebindable keybind map.
+        // Select All and tab shortcuts are fixed (like Explorer's/a browser's), not part of the rebindable keybind map.
         if (e.Key == Key.A && Keyboard.Modifiers == ModifierKeys.Control)
         {
             FileList.SelectAll();
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.T && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            _viewModel.NewTab();
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.W && Keyboard.Modifiers == ModifierKeys.Control)
+        {
+            _viewModel.CloseTab(_viewModel.ActiveTab);
             e.Handled = true;
             return;
         }
@@ -198,6 +212,35 @@ public partial class MainWindow : FluentWindow
     private void OpenTerminal_Click(object sender, RoutedEventArgs e) => _viewModel.OpenTerminalHere();
 
     private void NewWindow_Click(object sender, RoutedEventArgs e) => _viewModel.OpenNewWindow();
+
+    // ── Tabs (M8) ────────────────────────────────────────────────────────────
+
+    private void NewTab_Click(object sender, RoutedEventArgs e) => _viewModel.NewTab();
+
+    private void TabClose_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: TabState tab })
+            _viewModel.CloseTab(tab);
+    }
+
+    private void TabItem_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        // Don't switch tabs when the click was on the close ("x") button —
+        // its own Click handler (above) already handled that case.
+        if (e.OriginalSource is DependencyObject d && FindAncestor<Button>(d) is not null) return;
+        if (sender is FrameworkElement { DataContext: TabState tab })
+            _viewModel.SwitchToTab(tab);
+    }
+
+    private static T? FindAncestor<T>(DependencyObject? node) where T : DependencyObject
+    {
+        while (node is not null)
+        {
+            if (node is T match) return match;
+            node = VisualTreeHelper.GetParent(node);
+        }
+        return null;
+    }
 
     // ── View modes and column sorting (M3) ──────────────────────────────────
 

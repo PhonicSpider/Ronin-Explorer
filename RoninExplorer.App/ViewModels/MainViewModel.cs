@@ -97,14 +97,75 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<FileRow> Items { get; } = [];
     public ObservableCollection<NavNode> NavRoots { get; } = [];
 
+    // ── Tabs (M8) ────────────────────────────────────────────────────────────
+
+    public ObservableCollection<TabState> Tabs { get; } = [];
+
+    [ObservableProperty]
+    private TabState _activeTab = null!;
+
+    /// <summary>Raised when the last remaining tab is closed — MainWindow closes the window in response, matching a browser/Explorer tab strip.</summary>
+    public event Action? CloseWindowRequested;
+
     public MainViewModel()
     {
         _searchEngine = new SearchIndexEngine(_volumeIndex);
         BuildNavPane();
+
+        var initialTab = new TabState(ThisPcPath);
+        Tabs.Add(initialTab);
+        _activeTab = initialTab;
+
         _ = NavigateToAsync(ThisPcPath, recordHistory: false);
         // Elevation-gated inside — a no-op (instant) when not running as admin,
         // so this never blocks or delays startup for the common case.
         _ = _volumeIndex.BuildAllAsync();
+    }
+
+    public void NewTab()
+    {
+        var tab = new TabState(CurrentPath);
+        Tabs.Add(tab);
+        SwitchToTab(tab);
+    }
+
+    public void CloseTab(TabState tab)
+    {
+        if (Tabs.Count <= 1)
+        {
+            CloseWindowRequested?.Invoke();
+            return;
+        }
+
+        var closingActive = tab == ActiveTab;
+        var index = Tabs.IndexOf(tab);
+        Tabs.Remove(tab);
+
+        if (closingActive)
+            SwitchToTab(Tabs[Math.Min(index, Tabs.Count - 1)]);
+    }
+
+    public void SwitchToTab(TabState tab)
+    {
+        if (tab == ActiveTab) return;
+
+        // Snapshot the outgoing tab's history before handing the shared
+        // back/forward stacks over to the incoming tab.
+        ActiveTab.Back.Clear();
+        foreach (var p in _back.Reverse()) ActiveTab.Back.Push(p);
+        ActiveTab.Forward.Clear();
+        foreach (var p in _forward.Reverse()) ActiveTab.Forward.Push(p);
+
+        ActiveTab = tab;
+        _back.Clear();
+        foreach (var p in tab.Back.Reverse()) _back.Push(p);
+        _forward.Clear();
+        foreach (var p in tab.Forward.Reverse()) _forward.Push(p);
+
+        GoBackCommand.NotifyCanExecuteChanged();
+        GoForwardCommand.NotifyCanExecuteChanged();
+
+        _ = NavigateToAsync(tab.CurrentPath, recordHistory: false);
     }
 
     private void BuildNavPane()
@@ -134,6 +195,7 @@ public partial class MainViewModel : ObservableObject
 
         CurrentPath = path;
         AddressBarText = path == ThisPcPath ? "This PC" : path;
+        if (ActiveTab is not null) ActiveTab.CurrentPath = path; // keeps the tab strip's title live as you browse
         IsLoading = true;
 
         try
