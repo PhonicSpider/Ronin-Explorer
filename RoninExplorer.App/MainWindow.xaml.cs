@@ -35,6 +35,12 @@ public partial class MainWindow : FluentWindow
 
         ThemeService.ApplySkin(ThemeService.LoadOrDefault(ThemeService.LoadLastUsedSkinName()));
         BuildKeybindActions();
+
+        // "New window" passes the current folder as an argument so the new
+        // instance opens where you were, matching Explorer's own behavior.
+        var args = Environment.GetCommandLineArgs();
+        if (args.Length > 1 && Directory.Exists(args[1]))
+            _ = _viewModel.NavigateToTypedPathAsync(args[1]);
     }
 
     private void BuildKeybindActions()
@@ -178,6 +184,20 @@ public partial class MainWindow : FluentWindow
     private async void NewFolder_Click(object sender, RoutedEventArgs e) => await _viewModel.NewFolderAsync();
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await _viewModel.RefreshAsync();
+
+    // ── Extras: zip, terminal, new window (Explorer parity pass) ───────────
+
+    private async void ExtractZip_Click(object sender, RoutedEventArgs e)
+    {
+        if (FileList.SelectedItem is FileRow row)
+            await _viewModel.ExtractZipAsync(row);
+    }
+
+    private async void CompressSelection_Click(object sender, RoutedEventArgs e) => await _viewModel.CompressSelectionAsync(SelectedRows());
+
+    private void OpenTerminal_Click(object sender, RoutedEventArgs e) => _viewModel.OpenTerminalHere();
+
+    private void NewWindow_Click(object sender, RoutedEventArgs e) => _viewModel.OpenNewWindow();
 
     // ── View modes and column sorting (M3) ──────────────────────────────────
 

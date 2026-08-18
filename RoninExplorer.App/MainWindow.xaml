@@ -27,6 +27,10 @@
             <MenuItem Header="Rename" Click="ContextRename_Click" />
             <MenuItem Header="Delete" Click="ContextDelete_Click" />
             <Separator />
+            <MenuItem Header="Extract All..." Click="ExtractZip_Click" />
+            <MenuItem Header="Compress to ZIP file" Click="CompressSelection_Click" />
+            <Separator />
+            <MenuItem Header="Open in Terminal" Click="OpenTerminal_Click" />
             <MenuItem Header="Properties" Click="ContextProperties_Click" />
         </ContextMenu>
 
@@ -253,6 +257,9 @@
                     <ContextMenu>
                         <MenuItem Header="New folder" Click="NewFolder_Click" />
                         <MenuItem Header="Paste" Click="EmptyPaste_Click" />
+                        <Separator />
+                        <MenuItem Header="Open in Terminal" Click="OpenTerminal_Click" />
+                        <MenuItem Header="New window" Click="NewWindow_Click" />
                         <Separator />
                         <MenuItem Header="Refresh" Click="Refresh_Click" />
                     </ContextMenu>

@@ -190,6 +190,69 @@ public partial class MainViewModel : ObservableObject
             Verb = "properties",
         });
 
+    /// <summary>Launches another instance of this app at the current folder — Explorer's "New window".</summary>
+    public void OpenNewWindow()
+    {
+        var exe = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+        if (exe is null) return;
+        var startPath = CurrentPath == ThisPcPath ? string.Empty : CurrentPath;
+        System.Diagnostics.Process.Start(exe, startPath);
+    }
+
+    /// <summary>Opens a terminal (Windows Terminal, falling back to cmd) at the current folder — Explorer's "Open in Terminal".</summary>
+    public void OpenTerminalHere()
+    {
+        if (!CanMutateCurrentFolder()) return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("wt.exe")
+            {
+                ArgumentList = { "-d", CurrentPath },
+                UseShellExecute = true,
+            });
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe")
+            {
+                WorkingDirectory = CurrentPath,
+                UseShellExecute = true,
+            });
+        }
+    }
+
+    public async Task ExtractZipAsync(FileRow row)
+    {
+        if (!string.Equals(row.Entry.Extension, ".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            StatusMessage = "Only .zip files can be extracted.";
+            return;
+        }
+        try
+        {
+            ArchiveService.ExtractZip(row.FullPath);
+            await NavigateToAsync(CurrentPath, recordHistory: false);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+    }
+
+    public async Task CompressSelectionAsync(IReadOnlyList<FileRow> rows)
+    {
+        if (rows.Count == 0 || !CanMutateCurrentFolder()) return;
+        try
+        {
+            ArchiveService.CompressToZip([.. rows.Select(r => r.FullPath)], CurrentPath);
+            await NavigateToAsync(CurrentPath, recordHistory: false);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+        }
+    }
+
     // ── Sorting — folders always group before files, matching Explorer, with
     // the clicked column as the secondary key within each group ──────────────
 
