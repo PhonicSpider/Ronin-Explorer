@@ -26,6 +26,10 @@ public partial class MainWindow : FluentWindow
         SystemThemeWatcher.Watch(this);
         DataContext = _viewModel;
 
+        // Forces early creation of the window's HWND so FileOperationService
+        // has a real owner to hang its native progress/conflict dialogs off of.
+        _viewModel.OwnerHandle = new System.Windows.Interop.WindowInteropHelper(this).Handle;
+
         ThemeService.ApplySkin(ThemeService.LoadOrDefault(ThemeService.LoadLastUsedSkinName()));
         BuildKeybindActions();
     }

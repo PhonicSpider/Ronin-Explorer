@@ -28,6 +28,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
+    /// <summary>Set by MainWindow at startup — the native window handle FileOperationService hangs its progress/conflict dialogs off of.</summary>
+    public IntPtr OwnerHandle { get; set; }
+
     [ObservableProperty]
     private FileListViewMode _viewMode = FileListViewMode.Details;
 
@@ -237,8 +240,10 @@ public partial class MainViewModel : ObservableObject
         await NavigateToAsync(parent?.FullName ?? ThisPcPath, recordHistory: true);
     }
 
-    // ── File operations (M2 bootstrap — System.IO + Recycle Bin + real Windows
-    // clipboard, so cut/copy/paste round-trips with actual Explorer too) ──────
+    // ── File operations (M7 — IFileOperation for the native progress dialog,
+    // conflict-resolution UI, and shell undo-stack entry; New Folder stays on
+    // BasicFileOperations since instant creation gets nothing from the native
+    // dialog) ──────────────────────────────────────────────────────────────
 
     private bool CanMutateCurrentFolder() => CurrentPath != ThisPcPath;
 
@@ -265,9 +270,10 @@ public partial class MainViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(row.EditName) || row.EditName == row.Name)
             return;
 
-        if (!BasicFileOperations.Rename(row.FullPath, row.EditName, out var error))
+        var result = FileOperationService.RenameItem(row.FullPath, row.EditName, OwnerHandle);
+        if (!result.Success)
         {
-            StatusMessage = error;
+            StatusMessage = result.Error ?? string.Empty;
             return;
         }
 
@@ -282,11 +288,9 @@ public partial class MainViewModel : ObservableObject
     {
         if (rows.Count == 0) return;
 
-        foreach (var row in rows)
-        {
-            if (!RecycleBin.Send(row.FullPath, out var error))
-                StatusMessage = error;
-        }
+        var result = FileOperationService.DeleteItems(rows.Select(r => r.FullPath), OwnerHandle);
+        if (!result.Success && !result.WasAborted)
+            StatusMessage = result.Error ?? string.Empty;
 
         await NavigateToAsync(CurrentPath, recordHistory: false);
     }
@@ -324,10 +328,12 @@ public partial class MainViewModel : ObservableObject
 
         var isMove = TryGetPreferredDropEffect(out var effect) && effect.HasFlag(DragDropEffects.Move);
 
-        if (isMove)
-            BasicFileOperations.MoveToFolder(paths, CurrentPath);
-        else
-            BasicFileOperations.CopyToFolder(paths, CurrentPath);
+        var result = isMove
+            ? FileOperationService.MoveItems(paths, CurrentPath, OwnerHandle)
+            : FileOperationService.CopyItems(paths, CurrentPath, OwnerHandle);
+
+        if (!result.Success && !result.WasAborted)
+            StatusMessage = result.Error ?? string.Empty;
 
         await NavigateToAsync(CurrentPath, recordHistory: false);
     }
@@ -443,11 +449,10 @@ public partial class MainViewModel : ObservableObject
     /// <summary>Recycles every file in the group except the first (kept as the surviving copy).</summary>
     public async Task DeleteDuplicateGroupAsync(DuplicateFinder.DuplicateGroup group)
     {
-        foreach (var file in group.Files.Skip(1))
-        {
-            if (!RecycleBin.Send(file.FullPath, out var error))
-                StatusMessage = error;
-        }
+        var result = FileOperationService.DeleteItems(group.Files.Skip(1).Select(f => f.FullPath), OwnerHandle);
+        if (!result.Success && !result.WasAborted)
+            StatusMessage = result.Error ?? string.Empty;
+
         await FindDuplicatesInCurrentFolderAsync();
         await RefreshAsync();
     }
@@ -470,13 +475,14 @@ public partial class MainViewModel : ObservableObject
 
     public async Task DeleteCleanupResultsAsync()
     {
-        foreach (var hit in CleanupResults.ToList())
-        {
-            if (RecycleBin.Send(hit.FullPath, out var error))
-                CleanupResults.Remove(hit);
-            else
-                StatusMessage = error;
-        }
+        if (CleanupResults.Count == 0) return;
+
+        var result = FileOperationService.DeleteItems(CleanupResults.Select(h => h.FullPath), OwnerHandle);
+        if (result.Success)
+            CleanupResults.Clear();
+        else if (!result.WasAborted)
+            StatusMessage = result.Error ?? string.Empty;
+
         await RefreshAsync();
     }
 
