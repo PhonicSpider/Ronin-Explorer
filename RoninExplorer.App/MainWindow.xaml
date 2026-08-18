@@ -17,6 +17,8 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         <local:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
         <local:TabActiveConverter x:Key="TabActiveConverter" />
+        <local:PathToImageSourceConverter x:Key="PathToImageSource" />
+        <local:StringToUriConverter x:Key="StringToUri" />
 
         <!-- BasedOn is load-bearing: without it, Style="..." replaces WPF-UI's
              default ui:Button template entirely instead of extending it, and
@@ -25,10 +27,11 @@
              using this style, while unstyled ui:Buttons elsewhere rendered
              their icons fine). -->
         <Style x:Key="ToolbarIconButton" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
-            <Setter Property="Width" Value="32" />
-            <Setter Property="Height" Value="32" />
+            <Setter Property="Width" Value="30" />
+            <Setter Property="Height" Value="30" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="Margin" Value="0,0,1,0" />
+            <Setter Property="Appearance" Value="Transparent" />
         </Style>
 
         <Style x:Key="ToolbarSeparator" TargetType="Border">
@@ -48,11 +51,17 @@
             <MenuItem Header="Rename" Click="ContextRename_Click" />
             <MenuItem Header="Delete" Click="ContextDelete_Click" />
             <Separator />
+            <MenuItem Header="Pin to Favorites" Click="PinToFavorites_Click" />
+            <Separator />
             <MenuItem Header="Extract All..." Click="ExtractZip_Click" />
             <MenuItem Header="Compress to ZIP file" Click="CompressSelection_Click" />
             <Separator />
             <MenuItem Header="Open in Terminal" Click="OpenTerminal_Click" />
             <MenuItem Header="Properties" Click="ContextProperties_Click" />
+        </ContextMenu>
+
+        <ContextMenu x:Key="FavoriteItemContextMenu">
+            <MenuItem Header="Remove from Favorites" Click="RemoveFavorite_Click" />
         </ContextMenu>
 
         <!-- Name-cell template shared by both Details and Large-icons views: an
@@ -166,48 +175,52 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <ui:TitleBar Grid.Row="0" Title="Ronin Explorer" />
+        <!-- Title bar + tab strip merged onto one row, per feedback: no app-name
+             text, tabs sit where the title would be, caption buttons stay put
+             on the far right (TitleBar still owns those + the drag region). -->
+        <ui:TitleBar Grid.Row="0" Title="">
+            <ui:TitleBar.Header>
+                <DockPanel Margin="8,0,0,0" LastChildFill="False">
+                    <ItemsControl ItemsSource="{Binding Tabs}" DockPanel.Dock="Left">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:TabState}">
+                                <Border x:Name="TabBorder" Margin="0,0,4,0" Padding="10,6" CornerRadius="6,6,0,0"
+                                        MouseLeftButtonUp="TabItem_MouseLeftButtonUp">
+                                    <Border.Background>
+                                        <MultiBinding Converter="{StaticResource TabActiveConverter}">
+                                            <Binding />
+                                            <Binding Path="DataContext.ActiveTab" RelativeSource="{RelativeSource AncestorType=Window}" />
+                                        </MultiBinding>
+                                    </Border.Background>
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding Title}" VerticalAlignment="Center" MaxWidth="140" TextTrimming="CharacterEllipsis" />
+                                        <Button x:Name="CloseButton" Content="&#10005;" Margin="8,0,0,0" Padding="2" FontSize="9" Opacity="0"
+                                                Click="TabClose_Click" ToolTip="Close tab (Ctrl+W)" />
+                                    </StackPanel>
+                                </Border>
+                                <DataTemplate.Triggers>
+                                    <Trigger SourceName="TabBorder" Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="CloseButton" Property="Opacity" Value="1" />
+                                    </Trigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <ui:Button DockPanel.Dock="Left" Width="28" Height="28" Padding="0" Click="NewTab_Click" ToolTip="New tab (Ctrl+T)">
+                        <ui:Button.Icon><ui:SymbolIcon Symbol="Add24" /></ui:Button.Icon>
+                    </ui:Button>
+                </DockPanel>
+            </ui:TitleBar.Header>
+        </ui:TitleBar>
 
-        <!-- Tab strip (M8) — visual polish is a later pass; this is functional -->
-        <DockPanel Grid.Row="1" Margin="8,4,8,0" LastChildFill="False">
-            <ItemsControl ItemsSource="{Binding Tabs}" DockPanel.Dock="Left">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate DataType="{x:Type vm:TabState}">
-                        <Border x:Name="TabBorder" Margin="0,0,4,0" Padding="10,6" CornerRadius="6,6,0,0"
-                                MouseLeftButtonUp="TabItem_MouseLeftButtonUp">
-                            <Border.Background>
-                                <MultiBinding Converter="{StaticResource TabActiveConverter}">
-                                    <Binding />
-                                    <Binding Path="DataContext.ActiveTab" RelativeSource="{RelativeSource AncestorType=Window}" />
-                                </MultiBinding>
-                            </Border.Background>
-                            <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="{Binding Title}" VerticalAlignment="Center" MaxWidth="140" TextTrimming="CharacterEllipsis" />
-                                <Button x:Name="CloseButton" Content="&#10005;" Margin="8,0,0,0" Padding="2" FontSize="9" Opacity="0"
-                                        Click="TabClose_Click" ToolTip="Close tab (Ctrl+W)" />
-                            </StackPanel>
-                        </Border>
-                        <DataTemplate.Triggers>
-                            <Trigger SourceName="TabBorder" Property="IsMouseOver" Value="True">
-                                <Setter TargetName="CloseButton" Property="Opacity" Value="1" />
-                            </Trigger>
-                        </DataTemplate.Triggers>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-            <ui:Button DockPanel.Dock="Left" Width="28" Height="28" Padding="0" Click="NewTab_Click" ToolTip="New tab (Ctrl+T)">
-                <ui:Button.Icon><ui:SymbolIcon Symbol="Add24" /></ui:Button.Icon>
-            </ui:Button>
-        </DockPanel>
-
-        <!-- Win11-style flat icon command bar -->
-        <DockPanel Grid.Row="2" Margin="8,6" LastChildFill="True">
-
+        <!-- Row 1: navigation + address + search (search gets to be longer now
+             that the tool icons moved to their own centered row below). -->
+        <DockPanel Grid.Row="1" Margin="8,6" LastChildFill="True">
             <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
                 <ui:Button Style="{StaticResource ToolbarIconButton}" Command="{Binding GoBackCommand}" ToolTip="Back">
                     <ui:Button.Icon><ui:SymbolIcon Symbol="ArrowLeft24" /></ui:Button.Icon>
@@ -218,59 +231,58 @@
                 <ui:Button Style="{StaticResource ToolbarIconButton}" Command="{Binding GoUpCommand}" ToolTip="Up">
                     <ui:Button.Icon><ui:SymbolIcon Symbol="ArrowUp24" /></ui:Button.Icon>
                 </ui:Button>
-
-                <Border Style="{StaticResource ToolbarSeparator}" />
-
-                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="NewFolder_Click" ToolTip="New folder (Ctrl+Shift+N)">
-                    <ui:Button.Icon><ui:SymbolIcon Symbol="FolderAdd24" /></ui:Button.Icon>
-                </ui:Button>
-                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextCut_Click" ToolTip="Cut (Ctrl+X)">
-                    <ui:Button.Icon><ui:SymbolIcon Symbol="Cut24" /></ui:Button.Icon>
-                </ui:Button>
-                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextCopy_Click" ToolTip="Copy (Ctrl+C)">
-                    <ui:Button.Icon><ui:SymbolIcon Symbol="Copy24" /></ui:Button.Icon>
-                </ui:Button>
-                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="EmptyPaste_Click" ToolTip="Paste (Ctrl+V)">
-                    <ui:Button.Icon><ui:SymbolIcon Symbol="ClipboardPaste24" /></ui:Button.Icon>
-                </ui:Button>
-                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextRename_Click" ToolTip="Rename (F2)">
-                    <ui:Button.Icon><ui:SymbolIcon Symbol="Rename24" /></ui:Button.Icon>
-                </ui:Button>
-                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextDelete_Click" ToolTip="Delete">
-                    <ui:Button.Icon><ui:SymbolIcon Symbol="Delete24" /></ui:Button.Icon>
-                </ui:Button>
             </StackPanel>
 
-            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                <TextBox x:Name="SearchBox" Width="200" Margin="0,0,6,0"
-                          Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                          VerticalContentAlignment="Center" Padding="8,4"
-                          ToolTip="Search (Enter to run)"
-                          KeyDown="SearchBox_KeyDown" />
+            <TextBox x:Name="SearchBox" DockPanel.Dock="Right" Width="320" Margin="6,0,0,0"
+                      Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                      VerticalContentAlignment="Center" Padding="8,4"
+                      ToolTip="Search (Enter to run)"
+                      KeyDown="SearchBox_KeyDown" />
 
-                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ViewModeToggle_Click" ToolTip="Switch between Details and Large icons view">
-                    <ui:Button.Icon><ui:SymbolIcon Symbol="Grid24" /></ui:Button.Icon>
-                </ui:Button>
-                <ToggleButton Width="32" Height="32" Margin="0,0,4,0" Padding="0"
-                              IsChecked="{Binding ShowHiddenFiles}" ToolTip="Show hidden and system items">
-                    <ui:SymbolIcon Symbol="Eye24" />
-                </ToggleButton>
-
-                <Border Style="{StaticResource ToolbarSeparator}" />
-
-                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="Theme_Click" ToolTip="Customize colors and background">
-                    <ui:Button.Icon><ui:SymbolIcon Symbol="PaintBrush24" /></ui:Button.Icon>
-                </ui:Button>
-                <ui:Button Style="{StaticResource ToolbarIconButton}" Margin="0" Click="Keybinds_Click" ToolTip="Customize keyboard shortcuts">
-                    <ui:Button.Icon><ui:SymbolIcon Symbol="Keyboard24" /></ui:Button.Icon>
-                </ui:Button>
-            </StackPanel>
-
-            <TextBox x:Name="AddressBar" Margin="10,0" Text="{Binding AddressBarText}"
+            <TextBox x:Name="AddressBar" Margin="6,0" Text="{Binding AddressBarText}"
                       VerticalContentAlignment="Center" Padding="8,4"
                       ToolTip="Type a path and press Enter to go there"
                       KeyDown="AddressBar_KeyDown" />
         </DockPanel>
+
+        <!-- Row 2: the rest of the tools, centered — per feedback, kept
+             separate from the nav/address/search row so search could grow. -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="8,0,8,6">
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="NewFolder_Click" ToolTip="New folder (Ctrl+Shift+N)">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="FolderAdd24" /></ui:Button.Icon>
+            </ui:Button>
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextCut_Click" ToolTip="Cut (Ctrl+X)">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="Cut24" /></ui:Button.Icon>
+            </ui:Button>
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextCopy_Click" ToolTip="Copy (Ctrl+C)">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="Copy24" /></ui:Button.Icon>
+            </ui:Button>
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="EmptyPaste_Click" ToolTip="Paste (Ctrl+V)">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="ClipboardPaste24" /></ui:Button.Icon>
+            </ui:Button>
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextRename_Click" ToolTip="Rename (F2)">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="Rename24" /></ui:Button.Icon>
+            </ui:Button>
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextDelete_Click" ToolTip="Delete">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="Delete24" /></ui:Button.Icon>
+            </ui:Button>
+
+            <Border Style="{StaticResource ToolbarSeparator}" />
+
+            <ToggleButton Width="32" Height="32" Margin="0,0,2,0" Padding="0"
+                          IsChecked="{Binding ShowHiddenFiles}" ToolTip="Show hidden and system items">
+                <ui:SymbolIcon Symbol="Eye24" />
+            </ToggleButton>
+
+            <Border Style="{StaticResource ToolbarSeparator}" />
+
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="Theme_Click" ToolTip="Customize colors and background">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="PaintBrush24" /></ui:Button.Icon>
+            </ui:Button>
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Margin="0" Click="Keybinds_Click" ToolTip="Customize keyboard shortcuts">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="Keyboard24" /></ui:Button.Icon>
+            </ui:Button>
+        </StackPanel>
 
         <!-- Nav pane (left) + file list (center) + Details/Tools panel (right) -->
         <Grid Grid.Row="3">
@@ -282,31 +294,71 @@
                 <ColumnDefinition Width="280" />
             </Grid.ColumnDefinitions>
 
-            <TreeView x:Name="NavTree" Grid.Column="0" Margin="8,0,0,8"
-                      ItemsSource="{Binding NavRoots}"
-                      BorderThickness="0" Background="{DynamicResource NavPaneBackgroundBrush}"
-                      SelectedItemChanged="NavTree_SelectedItemChanged"
-                      AllowDrop="True"
-                      DragOver="NavTree_DragOver"
-                      Drop="NavTree_Drop">
-                <TreeView.ItemContainerStyle>
-                    <!-- BasedOn is load-bearing — see the note on ToolbarIconButton.
-                         Without it, the nav pane's selection/hover highlight has been
-                         bare default WPF chrome (square, classic blue) instead of
-                         WPF-UI's Fluent rounded selection this whole time. -->
-                    <Style TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
-                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
-                    </Style>
-                </TreeView.ItemContainerStyle>
-                <TreeView.Resources>
-                    <HierarchicalDataTemplate DataType="{x:Type vm:NavNode}" ItemsSource="{Binding Children}">
-                        <StackPanel Orientation="Horizontal" Margin="0,2">
-                            <Image Source="{Binding Icon}" Width="16" Height="16" Margin="0,0,6,0" />
-                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </HierarchicalDataTemplate>
-                </TreeView.Resources>
-            </TreeView>
+            <Grid Grid.Column="0" Margin="8,0,0,8">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Favorites/pinned folders — top section, separated by a
+                     line, matching Explorer's Quick Access. Hidden entirely
+                     when nothing's pinned, so a fresh install doesn't show an
+                     empty section. -->
+                <StackPanel Grid.Row="0">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Favorites.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="Favorites" FontWeight="SemiBold" Opacity="0.6" FontSize="11" Margin="4,4,0,2" />
+                    <ItemsControl ItemsSource="{Binding Favorites}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:NavNode}">
+                                <Border Padding="4,3" CornerRadius="4"
+                                        MouseLeftButtonUp="FavoriteItem_MouseLeftButtonUp"
+                                        ContextMenu="{StaticResource FavoriteItemContextMenu}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Image Source="{Binding Icon}" Width="16" Height="16" Margin="0,0,6,0" />
+                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Border Height="1" Margin="4,6,4,0" Opacity="0.15" Background="{DynamicResource TextPrimaryBrush}" />
+                </StackPanel>
+
+                <TreeView x:Name="NavTree" Grid.Row="1" Margin="0,4,0,0"
+                          ItemsSource="{Binding NavRoots}"
+                          BorderThickness="0" Background="{DynamicResource NavPaneBackgroundBrush}"
+                          SelectedItemChanged="NavTree_SelectedItemChanged"
+                          AllowDrop="True"
+                          DragOver="NavTree_DragOver"
+                          Drop="NavTree_Drop">
+                    <TreeView.ItemContainerStyle>
+                        <!-- BasedOn is load-bearing — see the note on ToolbarIconButton.
+                             Without it, the nav pane's selection/hover highlight has been
+                             bare default WPF chrome (square, classic blue) instead of
+                             WPF-UI's Fluent rounded selection this whole time. -->
+                        <Style TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
+                            <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                        </Style>
+                    </TreeView.ItemContainerStyle>
+                    <TreeView.Resources>
+                        <HierarchicalDataTemplate DataType="{x:Type vm:NavNode}" ItemsSource="{Binding Children}">
+                            <StackPanel Orientation="Horizontal" Margin="0,2">
+                                <Image Source="{Binding Icon}" Width="16" Height="16" Margin="0,0,6,0" />
+                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </HierarchicalDataTemplate>
+                    </TreeView.Resources>
+                </TreeView>
+            </Grid>
 
             <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch"
                           Background="{DynamicResource TextPrimaryBrush}" Opacity="0.08" />
@@ -359,16 +411,62 @@
                 </ListView.ContextMenu>
 
                 <ListView.ItemContainerStyle>
-                    <!-- No BasedOn: unlike TreeViewItem, WPF-UI has no implicit
-                         style for ListViewItem either (same "Cannot find
-                         resource" crash as the ListView.Style above). Fluent
-                         rounded selection/hover on file rows would need a real
-                         custom ControlTemplate, deferred rather than guessed
-                         at blind. -->
+                    <!-- Full custom ControlTemplate, not just Setters: WPF-UI has
+                         no implicit ListViewItem style to extend, and the default
+                         WPF selection highlight was reported too bright/low-
+                         contrast against the file name text. Subtle theme-aware
+                         tints instead (SelectionHighlightBrush/HoverHighlightBrush,
+                         built in ThemeService from the accent color at low
+                         opacity), rounded corners to match the rest of the app.
+                         Two templates behind a DataTrigger, not one: a GridView
+                         row (Details view) needs GridViewRowPresenter to lay out
+                         per-column content; Large Icons view needs a plain
+                         ContentPresenter for its DataTemplate instead. -->
                     <Style TargetType="ListViewItem">
                         <EventSetter Event="MouseRightButtonDown" Handler="ListViewItem_PreviewMouseRightButtonDown" />
                         <!-- Right-click on an item: Win10-style flat menu, no "show more" step -->
                         <Setter Property="ContextMenu" Value="{StaticResource FileItemContextMenu}" />
+                        <Setter Property="Padding" Value="4,2" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListViewItem">
+                                    <Border x:Name="RowBorder" Background="Transparent" CornerRadius="4" SnapsToDevicePixels="True">
+                                        <GridViewRowPresenter Content="{TemplateBinding Content}"
+                                                               Columns="{Binding Path=(GridView.ColumnCollection), RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                               Margin="{TemplateBinding Padding}" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource HoverHighlightBrush}" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource SelectionHighlightBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding DataContext.ViewMode, RelativeSource={RelativeSource AncestorType=Window}}" Value="LargeIcons">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListViewItem">
+                                            <Border x:Name="RowBorder" Background="Transparent" CornerRadius="6" SnapsToDevicePixels="True">
+                                                <ContentPresenter Margin="{TemplateBinding Padding}" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource HoverHighlightBrush}" />
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="RowBorder" Property="Background" Value="{DynamicResource SelectionHighlightBrush}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </DataTrigger>
+                        </Style.Triggers>
                     </Style>
                 </ListView.ItemContainerStyle>
 
@@ -433,6 +531,63 @@
                                 </Style.Triggers>
                             </Style>
                         </StackPanel.Style>
+
+                        <!-- Preview: real decoded image for image files, a
+                             5-second auto-playing/pausing clip for video files
+                             (matching what was asked for), a large file-type
+                             icon otherwise. The icon here is only 32x32 under
+                             the hood (SHGFI_LARGEICON) stretched up — a true
+                             "jumbo" icon needs a further COM interface
+                             (IImageList/SHIL_JUMBO) not built in this pass, so
+                             it'll look a bit soft compared to Explorer's. -->
+                        <Grid Height="160" Margin="0,0,0,10">
+                            <Image Source="{Binding FullPath, Converter={StaticResource PathToImageSource}}" Stretch="Uniform">
+                                <Image.Style>
+                                    <Style TargetType="Image">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsImage}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Image.Style>
+                            </Image>
+
+                            <MediaElement x:Name="VideoPreview"
+                                          Source="{Binding FullPath, Converter={StaticResource StringToUri}}"
+                                          LoadedBehavior="Manual" UnloadedBehavior="Manual" Stretch="Uniform"
+                                          MediaOpened="VideoPreview_MediaOpened"
+                                          IsVisibleChanged="VideoPreview_IsVisibleChanged">
+                                <MediaElement.Style>
+                                    <Style TargetType="MediaElement">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsVideo}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </MediaElement.Style>
+                            </MediaElement>
+
+                            <Image Source="{Binding LargeIcon}" Width="72" Height="72" Stretch="Uniform">
+                                <Image.Style>
+                                    <Style TargetType="Image">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsImage}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding IsVideo}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Image.Style>
+                            </Image>
+                        </Grid>
+
                         <TextBlock Text="{Binding Name}" FontWeight="Bold" TextWrapping="Wrap" Margin="0,0,0,4" />
                         <TextBlock Text="{Binding FullPath}" TextWrapping="Wrap" Opacity="0.7" FontSize="11" Margin="0,0,0,8" />
                         <TextBlock Text="{Binding FileType}" Margin="0,0,0,4" />
@@ -531,6 +686,7 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{Binding ItemCountDisplay}" Opacity="0.7" FontSize="12" />
                 <TextBlock Grid.Column="1" Margin="16,0,0,0" Opacity="0.7" FontSize="12">
@@ -549,6 +705,34 @@
                     <Run Text="{Binding DetailsSelectedTotalSizeDisplay, Mode=OneWay}" />
                 </TextBlock>
                 <TextBlock Grid.Column="2" Text="{Binding StatusMessage}" Opacity="0.7" FontSize="12" HorizontalAlignment="Right" />
+
+                <!-- View-mode toggle, matching Explorer's own bottom-right placement. -->
+                <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="16,0,0,0">
+                    <ui:Button Width="24" Height="24" Padding="0" Margin="0,0,2,0" Click="ViewModeDetails_Click" ToolTip="Details view">
+                        <ui:Button.Icon><ui:SymbolIcon Symbol="List24" /></ui:Button.Icon>
+                        <ui:Button.Style>
+                            <Style TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ViewMode}" Value="Details">
+                                        <Setter Property="Background" Value="{DynamicResource SelectionHighlightBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ui:Button.Style>
+                    </ui:Button>
+                    <ui:Button Width="24" Height="24" Padding="0" Click="ViewModeLargeIcons_Click" ToolTip="Large icons view">
+                        <ui:Button.Icon><ui:SymbolIcon Symbol="Grid24" /></ui:Button.Icon>
+                        <ui:Button.Style>
+                            <Style TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ViewMode}" Value="LargeIcons">
+                                        <Setter Property="Background" Value="{DynamicResource SelectionHighlightBrush}" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ui:Button.Style>
+                    </ui:Button>
+                </StackPanel>
             </Grid>
         </Border>
     </Grid>

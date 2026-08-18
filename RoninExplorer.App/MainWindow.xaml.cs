@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using RoninExplorer.App.Services;
 using RoninExplorer.App.ViewModels;
 using Wpf.Ui.Appearance;
@@ -199,6 +200,26 @@ public partial class MainWindow : FluentWindow
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await _viewModel.RefreshAsync();
 
+    // ── Favorites/pinned folders ─────────────────────────────────────────────
+
+    private void PinToFavorites_Click(object sender, RoutedEventArgs e)
+    {
+        if (FileList.SelectedItem is FileRow { IsDirectory: true } row)
+            _viewModel.PinFolder(row.FullPath);
+    }
+
+    private void RemoveFavorite_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: NavNode node })
+            _viewModel.UnpinFolder(node);
+    }
+
+    private void FavoriteItem_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: NavNode { Path: { } path } })
+            _viewModel.NavigateToCommand.Execute(path);
+    }
+
     // ── Extras: zip, terminal, new window (Explorer parity pass) ───────────
 
     private async void ExtractZip_Click(object sender, RoutedEventArgs e)
@@ -244,8 +265,9 @@ public partial class MainWindow : FluentWindow
 
     // ── View modes and column sorting (M3) ──────────────────────────────────
 
-    private void ViewModeToggle_Click(object sender, RoutedEventArgs e)
-        => _viewModel.ViewMode = _viewModel.ViewMode == FileListViewMode.Details ? FileListViewMode.LargeIcons : FileListViewMode.Details;
+    private void ViewModeDetails_Click(object sender, RoutedEventArgs e) => _viewModel.ViewMode = FileListViewMode.Details;
+
+    private void ViewModeLargeIcons_Click(object sender, RoutedEventArgs e) => _viewModel.ViewMode = FileListViewMode.LargeIcons;
 
     private void ColumnHeader_Click(object sender, RoutedEventArgs e)
     {
@@ -271,6 +293,36 @@ public partial class MainWindow : FluentWindow
     private void PanelModeDetails_Click(object sender, RoutedEventArgs e) => _viewModel.PanelMode = DetailsToolsMode.Details;
 
     private void PanelModeTools_Click(object sender, RoutedEventArgs e) => _viewModel.PanelMode = DetailsToolsMode.Tools;
+
+    // Plays a video preview for ~5 seconds then pauses, as asked for — WPF's
+    // MediaElement has no built-in "play N seconds" option, so this is a
+    // manual DispatcherTimer. Stopped (not just paused) when the preview goes
+    // invisible so switching away from a video can't leave audio playing.
+    private DispatcherTimer? _videoPreviewTimer;
+
+    private void VideoPreview_MediaOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MediaElement media) return;
+        _videoPreviewTimer?.Stop();
+        media.Position = TimeSpan.Zero;
+        media.Play();
+        _videoPreviewTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _videoPreviewTimer.Tick += (_, _) =>
+        {
+            media.Pause();
+            _videoPreviewTimer!.Stop();
+        };
+        _videoPreviewTimer.Start();
+    }
+
+    private void VideoPreview_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (sender is not MediaElement media) return;
+        if (media.IsVisible) return;
+
+        _videoPreviewTimer?.Stop();
+        media.Stop();
+    }
 
     private async void CalculateFolderSize_Click(object sender, RoutedEventArgs e) => await _viewModel.CalculateFolderSizeAsync();
 

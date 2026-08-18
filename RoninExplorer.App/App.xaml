@@ -19,6 +19,8 @@
             <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#14FFFFFF" />
             <SolidColorBrush x:Key="AccentBrush" Color="#3D5AFE" />
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="White" />
+            <SolidColorBrush x:Key="SelectionHighlightBrush" Color="#3D5AFE" Opacity="0.28" />
+            <SolidColorBrush x:Key="HoverHighlightBrush" Color="#3D5AFE" Opacity="0.12" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

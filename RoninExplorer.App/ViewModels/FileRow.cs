@@ -27,6 +27,15 @@ public partial class FileRow(FileSystemEntry entry) : ObservableObject
         ? IconCache.GetLargeFolderIcon()
         : IconCache.GetLargeFileIcon(Entry.Extension);
 
+    private static readonly string[] ImageExtensions = [".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tiff", ".tif", ".ico"];
+    private static readonly string[] VideoExtensions = [".mp4", ".mkv", ".avi", ".mov", ".wmv", ".webm", ".m4v"];
+
+    /// <summary>Whether the Details panel should show a real decoded image instead of a generic file-type icon.</summary>
+    public bool IsImage => !IsDirectory && ImageExtensions.Contains(Entry.Extension, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Whether the Details panel should show a playable video preview instead of a generic file-type icon.</summary>
+    public bool IsVideo => !IsDirectory && VideoExtensions.Contains(Entry.Extension, StringComparer.OrdinalIgnoreCase);
+
     /// <summary>True while this row is showing an inline rename TextBox instead of its name TextBlock.</summary>
     [ObservableProperty]
     private bool _isRenaming;

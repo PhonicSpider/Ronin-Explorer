@@ -25,12 +25,22 @@ public static class ThemeService
 
     public static void ApplySkin(SkinDefinition skin)
     {
+        var accentColor = (Color)ColorConverter.ConvertFromString(SafeHex(skin.AccentColor))!;
+
         var dict = new ResourceDictionary
         {
             ["NavPaneBackgroundBrush"] = MakeBrush(skin.NavPaneBackground),
             ["PanelBackgroundBrush"] = MakeBrush(skin.PanelBackground),
             ["AccentBrush"] = MakeBrush(skin.AccentColor),
             ["TextPrimaryBrush"] = MakeBrush(skin.TextPrimary),
+            // Subtle, theme-aware file-row selection/hover tints — a plain
+            // Foreground Setter keeps list text readable regardless (see
+            // MainWindow.xaml's ListViewItem template), but the highlight
+            // color itself needs to be visibly less saturated than the raw
+            // accent color to read as "selected," not "alarm," matching
+            // Explorer's own quiet selection tint.
+            ["SelectionHighlightBrush"] = MakeTintedBrush(accentColor, 0.28),
+            ["HoverHighlightBrush"] = MakeTintedBrush(accentColor, 0.12),
         };
 
         // A background image, when set, overrides the flat file-list color —
@@ -61,6 +71,26 @@ public static class ThemeService
         {
             return Brushes.Transparent;
         }
+    }
+
+    private static string SafeHex(string hex)
+    {
+        try
+        {
+            ColorConverter.ConvertFromString(hex);
+            return hex;
+        }
+        catch
+        {
+            return SkinDefinition.Default.AccentColor;
+        }
+    }
+
+    private static SolidColorBrush MakeTintedBrush(Color baseColor, double opacity)
+    {
+        var brush = new SolidColorBrush(baseColor) { Opacity = Math.Clamp(opacity, 0, 1) };
+        brush.Freeze();
+        return brush;
     }
 
     private static ImageBrush MakeImageBrush(string path, double opacity)

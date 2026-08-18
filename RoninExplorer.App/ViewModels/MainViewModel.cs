@@ -4,6 +4,7 @@ using System.IO;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using RoninExplorer.App.Services;
 using RoninExplorer.Core.Engine;
 using RoninExplorer.Core.Models;
 
@@ -97,6 +98,31 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<FileRow> Items { get; } = [];
     public ObservableCollection<NavNode> NavRoots { get; } = [];
 
+    // ── Favorites/pinned folders ─────────────────────────────────────────────
+
+    public ObservableCollection<NavNode> Favorites { get; } = [];
+
+    private void LoadFavorites()
+    {
+        foreach (var path in PinnedFoldersService.Load())
+            Favorites.Add(new NavNode(Path.GetFileName(path.TrimEnd('\\')) is { Length: > 0 } n ? n : path, path));
+    }
+
+    public bool IsPinned(string path) => Favorites.Any(f => string.Equals(f.Path, path, StringComparison.OrdinalIgnoreCase));
+
+    public void PinFolder(string path)
+    {
+        if (IsPinned(path)) return;
+        Favorites.Add(new NavNode(Path.GetFileName(path.TrimEnd('\\')) is { Length: > 0 } n ? n : path, path));
+        PinnedFoldersService.Save(Favorites.Select(f => f.Path!));
+    }
+
+    public void UnpinFolder(NavNode node)
+    {
+        Favorites.Remove(node);
+        PinnedFoldersService.Save(Favorites.Select(f => f.Path!));
+    }
+
     // ── Tabs (M8) ────────────────────────────────────────────────────────────
 
     public ObservableCollection<TabState> Tabs { get; } = [];
@@ -111,6 +137,7 @@ public partial class MainViewModel : ObservableObject
     {
         _searchEngine = new SearchIndexEngine(_volumeIndex);
         BuildNavPane();
+        LoadFavorites();
 
         var initialTab = new TabState(ThisPcPath);
         Tabs.Add(initialTab);
