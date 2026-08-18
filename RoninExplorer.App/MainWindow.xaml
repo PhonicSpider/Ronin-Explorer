@@ -18,7 +18,13 @@
         <local:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
         <local:TabActiveConverter x:Key="TabActiveConverter" />
 
-        <Style x:Key="ToolbarIconButton" TargetType="{x:Type ui:Button}">
+        <!-- BasedOn is load-bearing: without it, Style="..." replaces WPF-UI's
+             default ui:Button template entirely instead of extending it, and
+             the replacement doesn't know how to render Button.Icon at all —
+             confirmed live (screenshot showed blank squares on every button
+             using this style, while unstyled ui:Buttons elsewhere rendered
+             their icons fine). -->
+        <Style x:Key="ToolbarIconButton" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
             <Setter Property="Width" Value="32" />
             <Setter Property="Height" Value="32" />
             <Setter Property="Padding" Value="0" />
@@ -73,7 +79,11 @@
                           LostFocus="RenameBox_LostFocus"
                           Visibility="Collapsed">
                     <TextBox.Style>
-                        <Style TargetType="TextBox">
+                        <!-- BasedOn load-bearing, same pattern as ToolbarIconButton
+                             above — without it this rename box renders as bare
+                             default WPF TextBox chrome instead of WPF-UI's Fluent
+                             dark-themed style. -->
+                        <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsRenaming}" Value="True">
                                     <Setter Property="Visibility" Value="Visible" />
@@ -280,7 +290,11 @@
                       DragOver="NavTree_DragOver"
                       Drop="NavTree_Drop">
                 <TreeView.ItemContainerStyle>
-                    <Style TargetType="TreeViewItem">
+                    <!-- BasedOn is load-bearing — see the note on ToolbarIconButton.
+                         Without it, the nav pane's selection/hover highlight has been
+                         bare default WPF chrome (square, classic blue) instead of
+                         WPF-UI's Fluent rounded selection this whole time. -->
+                    <Style TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
                         <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                     </Style>
                 </TreeView.ItemContainerStyle>
@@ -311,7 +325,16 @@
                       DragOver="FileList_DragOver"
                       Drop="FileList_Drop">
                 <ListView.Style>
+                    <!-- No BasedOn here, unlike the other fixes on this page:
+                         WPF-UI has no implicit style for plain ListView (only
+                         for item containers like ListViewItem) — confirmed by
+                         a runtime StaticResourceExtension crash ("Cannot find
+                         resource named 'System.Windows.Controls.ListView'")
+                         when BasedOn was added. So the wrong-colored file-list
+                         text wasn't caused by this Style; see the explicit
+                         Foreground fix below instead. -->
                     <Style TargetType="ListView">
+                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding ViewMode}" Value="LargeIcons">
                                 <Setter Property="View" Value="{x:Null}" />
@@ -336,6 +359,12 @@
                 </ListView.ContextMenu>
 
                 <ListView.ItemContainerStyle>
+                    <!-- No BasedOn: unlike TreeViewItem, WPF-UI has no implicit
+                         style for ListViewItem either (same "Cannot find
+                         resource" crash as the ListView.Style above). Fluent
+                         rounded selection/hover on file rows would need a real
+                         custom ControlTemplate, deferred rather than guessed
+                         at blind. -->
                     <Style TargetType="ListViewItem">
                         <EventSetter Event="MouseRightButtonDown" Handler="ListViewItem_PreviewMouseRightButtonDown" />
                         <!-- Right-click on an item: Win10-style flat menu, no "show more" step -->
