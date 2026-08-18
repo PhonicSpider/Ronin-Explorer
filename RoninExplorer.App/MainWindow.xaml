@@ -151,6 +151,7 @@
                 <ColumnDefinition Width="220" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <Button Grid.Column="0" Content="&#8592;" Width="32" Margin="0,0,4,0"
@@ -162,8 +163,10 @@
             <Button Grid.Column="3" Content="New folder" Padding="8,0" Margin="0,0,8,0"
                     Click="NewFolder_Click" ToolTip="New folder (Ctrl+Shift+N)" />
 
-            <TextBox Grid.Column="4" Text="{Binding AddressBarText, Mode=OneWay}"
-                      IsReadOnly="True" VerticalContentAlignment="Center" Padding="8,4" />
+            <TextBox x:Name="AddressBar" Grid.Column="4" Text="{Binding AddressBarText}"
+                      VerticalContentAlignment="Center" Padding="8,4"
+                      ToolTip="Type a path and press Enter to go there"
+                      KeyDown="AddressBar_KeyDown" />
 
             <Button Grid.Column="5" Content="Details" Padding="8,0" Margin="8,0,4,0"
                     Click="ViewModeDetails_Click" ToolTip="Details view" />
@@ -178,8 +181,11 @@
 
             <Button Grid.Column="8" Content="Theme" Padding="8,0" Margin="8,0,4,0"
                     Click="Theme_Click" ToolTip="Customize colors and background" />
-            <Button Grid.Column="9" Content="Keybinds" Padding="8,0"
+            <Button Grid.Column="9" Content="Keybinds" Padding="8,0" Margin="0,0,4,0"
                     Click="Keybinds_Click" ToolTip="Customize keyboard shortcuts" />
+            <ToggleButton Grid.Column="10" Content="Hidden items" Padding="8,0"
+                          IsChecked="{Binding ShowHiddenFiles}"
+                          ToolTip="Show hidden and system items" />
         </Grid>
 
         <!-- Nav pane (left) + file list (center) + Details/Tools panel (right) -->
@@ -195,7 +201,10 @@
             <TreeView x:Name="NavTree" Grid.Column="0" Margin="8,0,0,8"
                       ItemsSource="{Binding NavRoots}"
                       BorderThickness="0" Background="{DynamicResource NavPaneBackgroundBrush}"
-                      SelectedItemChanged="NavTree_SelectedItemChanged">
+                      SelectedItemChanged="NavTree_SelectedItemChanged"
+                      AllowDrop="True"
+                      DragOver="NavTree_DragOver"
+                      Drop="NavTree_Drop">
                 <TreeView.ItemContainerStyle>
                     <Style TargetType="TreeViewItem">
                         <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
@@ -217,10 +226,16 @@
             <ListView x:Name="FileList" Grid.Column="2" Margin="0,0,8,8"
                       ItemsSource="{Binding Items}"
                       SelectionMode="Extended"
+                      TextSearch.TextPath="Name"
                       BorderThickness="0" Background="{DynamicResource FileListBackgroundBrush}"
                       View="{StaticResource DetailsGridView}"
                       MouseDoubleClick="FileList_MouseDoubleClick"
-                      SelectionChanged="FileList_SelectionChanged">
+                      SelectionChanged="FileList_SelectionChanged"
+                      PreviewMouseLeftButtonDown="FileList_PreviewMouseLeftButtonDown"
+                      PreviewMouseMove="FileList_PreviewMouseMove"
+                      AllowDrop="True"
+                      DragOver="FileList_DragOver"
+                      Drop="FileList_Drop">
                 <ListView.Style>
                     <Style TargetType="ListView">
                         <Style.Triggers>
@@ -396,7 +411,30 @@
         </Grid>
 
         <Border Grid.Row="3" Padding="10,5">
-            <TextBlock Text="{Binding StatusMessage}" Opacity="0.7" FontSize="12" />
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding ItemCountDisplay}" Opacity="0.7" FontSize="12" />
+                <TextBlock Grid.Column="1" Margin="16,0,0,0" Opacity="0.7" FontSize="12">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding DetailsSelectedCount}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                    <Run Text="{Binding DetailsSelectedCount, Mode=OneWay}" />
+                    <Run Text=" selected  " />
+                    <Run Text="{Binding DetailsSelectedTotalSizeDisplay, Mode=OneWay}" />
+                </TextBlock>
+                <TextBlock Grid.Column="2" Text="{Binding StatusMessage}" Opacity="0.7" FontSize="12" HorizontalAlignment="Right" />
+            </Grid>
         </Border>
     </Grid>
 </ui:FluentWindow>

@@ -43,6 +43,11 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _searchQuery = string.Empty;
 
+    [ObservableProperty]
+    private bool _showHiddenFiles;
+
+    public string ItemCountDisplay => Items.Count == 1 ? "1 item" : $"{Items.Count} items";
+
     // ── Details/Tools panel (M5) ────────────────────────────────────────────
 
     [ObservableProperty]
@@ -135,12 +140,13 @@ public partial class MainViewModel : ObservableObject
         {
             var entries = path == ThisPcPath
                 ? FolderListingService.ListFixedDrives()
-                : await FolderListingService.ListFolderAsync(path);
+                : await FolderListingService.ListFolderAsync(path, ShowHiddenFiles);
 
             Items.Clear();
             foreach (var entry in entries)
                 Items.Add(new FileRow(entry));
             ApplySort();
+            OnPropertyChanged(nameof(ItemCountDisplay));
         }
         catch (IOException)
         {
@@ -152,6 +158,19 @@ public partial class MainViewModel : ObservableObject
             GoUpCommand.NotifyCanExecuteChanged();
         }
     }
+
+    /// <summary>Navigates to a path typed directly into the (now-editable) address bar. Explorer-like: silently no-ops rather than erroring loudly on a bad path.</summary>
+    public async Task NavigateToTypedPathAsync(string typedPath)
+    {
+        var path = typedPath.Trim();
+        if (Directory.Exists(path))
+            await NavigateToAsync(path, recordHistory: true);
+        else
+            StatusMessage = $"\"{path}\" could not be found.";
+    }
+
+    /// <summary>CommunityToolkit-generated hook — fires whenever ShowHiddenFiles changes, including via the toolbar toggle button's two-way binding.</summary>
+    partial void OnShowHiddenFilesChanged(bool value) => _ = NavigateToAsync(CurrentPath, recordHistory: false);
 
     [RelayCommand]
     private void OpenItem(FileRow? row)
@@ -318,6 +337,24 @@ public partial class MainViewModel : ObservableObject
         Clipboard.SetDataObject(data, copy: true);
     }
 
+    /// <summary>Drag-and-drop equivalent of paste — from either this app's own drag source or an external one (real Explorer, desktop), since both use the standard CF_HDROP format.</summary>
+    public async Task DropFilesAsync(IReadOnlyList<string> sourcePaths, string destFolder, bool isMove)
+    {
+        // Dropping items back into the folder they already came from is a no-op, not an error.
+        var paths = sourcePaths.Where(p => !string.Equals(Path.GetDirectoryName(p), destFolder, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (paths.Count == 0) return;
+
+        var result = isMove
+            ? FileOperationService.MoveItems(paths, destFolder, OwnerHandle)
+            : FileOperationService.CopyItems(paths, destFolder, OwnerHandle);
+
+        if (!result.Success && !result.WasAborted)
+            StatusMessage = result.Error ?? string.Empty;
+
+        if (string.Equals(destFolder, CurrentPath, StringComparison.OrdinalIgnoreCase))
+            await NavigateToAsync(CurrentPath, recordHistory: false);
+    }
+
     public async Task PasteAsync()
     {
         if (!CanMutateCurrentFolder()) return;
@@ -369,6 +406,7 @@ public partial class MainViewModel : ObservableObject
 
             AddressBarText = $"Search results for \"{query}\"" + (_volumeIndex.HasAnyIndex ? "" : " (not elevated — full-disk index unavailable, searched live instead)");
             ApplySort();
+            OnPropertyChanged(nameof(ItemCountDisplay));
         }
         finally
         {

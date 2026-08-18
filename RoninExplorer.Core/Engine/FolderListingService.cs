@@ -16,10 +16,13 @@ public static class FolderListingService
     /// Lists the immediate children of <paramref name="folderPath"/>. Folders
     /// sort before files, then alphabetically by name — matching Explorer's
     /// default "Name" sort. Entries that throw while reading metadata are
-    /// skipped rather than aborting the whole listing.
+    /// skipped rather than aborting the whole listing. Hidden and system
+    /// files are excluded by default, matching Explorer's own default —
+    /// pass <paramref name="includeHidden"/> for the "Show hidden items" toggle.
     /// </summary>
     public static Task<List<FileSystemEntry>> ListFolderAsync(
         string folderPath,
+        bool includeHidden = false,
         CancellationToken ct = default)
         => Task.Run(() =>
         {
@@ -38,6 +41,9 @@ public static class FolderListingService
                 ct.ThrowIfCancellationRequested();
                 try
                 {
+                    if (!includeHidden && (entry.Attributes & (FileAttributes.Hidden | FileAttributes.System)) != 0)
+                        continue;
+
                     bool isDir = entry is DirectoryInfo;
                     results.Add(new FileSystemEntry
                     {
