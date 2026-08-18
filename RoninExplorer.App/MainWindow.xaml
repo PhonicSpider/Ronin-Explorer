@@ -16,6 +16,21 @@
     <ui:FluentWindow.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
         <local:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVisibility" />
+        <local:TabActiveConverter x:Key="TabActiveConverter" />
+
+        <Style x:Key="ToolbarIconButton" TargetType="{x:Type ui:Button}">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+        </Style>
+
+        <Style x:Key="ToolbarSeparator" TargetType="Border">
+            <Setter Property="Width" Value="1" />
+            <Setter Property="Margin" Value="2,6,6,6" />
+            <Setter Property="Opacity" Value="0.15" />
+            <Setter Property="Background" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
 
         <ContextMenu x:Key="FileItemContextMenu">
             <MenuItem Header="Open" Click="ContextOpen_Click" />
@@ -153,70 +168,99 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:TabState}">
-                        <Border Margin="0,0,4,0" Padding="10,4" CornerRadius="4"
-                                MouseLeftButtonUp="TabItem_MouseLeftButtonUp"
-                                Background="{DynamicResource PanelBackgroundBrush}">
+                        <Border x:Name="TabBorder" Margin="0,0,4,0" Padding="10,6" CornerRadius="6,6,0,0"
+                                MouseLeftButtonUp="TabItem_MouseLeftButtonUp">
+                            <Border.Background>
+                                <MultiBinding Converter="{StaticResource TabActiveConverter}">
+                                    <Binding />
+                                    <Binding Path="DataContext.ActiveTab" RelativeSource="{RelativeSource AncestorType=Window}" />
+                                </MultiBinding>
+                            </Border.Background>
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{Binding Title}" VerticalAlignment="Center" MaxWidth="140" TextTrimming="CharacterEllipsis" />
-                                <Button Content="&#10005;" Margin="8,0,0,0" Padding="2" FontSize="9"
+                                <Button x:Name="CloseButton" Content="&#10005;" Margin="8,0,0,0" Padding="2" FontSize="9" Opacity="0"
                                         Click="TabClose_Click" ToolTip="Close tab (Ctrl+W)" />
                             </StackPanel>
                         </Border>
+                        <DataTemplate.Triggers>
+                            <Trigger SourceName="TabBorder" Property="IsMouseOver" Value="True">
+                                <Setter TargetName="CloseButton" Property="Opacity" Value="1" />
+                            </Trigger>
+                        </DataTemplate.Triggers>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
-            <Button DockPanel.Dock="Left" Content="+" Width="28" Click="NewTab_Click" ToolTip="New tab (Ctrl+T)" />
+            <ui:Button DockPanel.Dock="Left" Width="28" Height="28" Padding="0" Click="NewTab_Click" ToolTip="New tab (Ctrl+T)">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="Add24" /></ui:Button.Icon>
+            </ui:Button>
         </DockPanel>
 
-        <!-- Win11-style flat command bar: back/forward/up + address bar -->
-        <Grid Grid.Row="2" Margin="8,4">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="220" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+        <!-- Win11-style flat icon command bar -->
+        <DockPanel Grid.Row="2" Margin="8,6" LastChildFill="True">
 
-            <Button Grid.Column="0" Content="&#8592;" Width="32" Margin="0,0,4,0"
-                    Command="{Binding GoBackCommand}" ToolTip="Back" />
-            <Button Grid.Column="1" Content="&#8594;" Width="32" Margin="0,0,4,0"
-                    Command="{Binding GoForwardCommand}" ToolTip="Forward" />
-            <Button Grid.Column="2" Content="&#8593;" Width="32" Margin="0,0,8,0"
-                    Command="{Binding GoUpCommand}" ToolTip="Up" />
-            <Button Grid.Column="3" Content="New folder" Padding="8,0" Margin="0,0,8,0"
-                    Click="NewFolder_Click" ToolTip="New folder (Ctrl+Shift+N)" />
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                <ui:Button Style="{StaticResource ToolbarIconButton}" Command="{Binding GoBackCommand}" ToolTip="Back">
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="ArrowLeft24" /></ui:Button.Icon>
+                </ui:Button>
+                <ui:Button Style="{StaticResource ToolbarIconButton}" Command="{Binding GoForwardCommand}" ToolTip="Forward">
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="ArrowRight24" /></ui:Button.Icon>
+                </ui:Button>
+                <ui:Button Style="{StaticResource ToolbarIconButton}" Command="{Binding GoUpCommand}" ToolTip="Up">
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="ArrowUp24" /></ui:Button.Icon>
+                </ui:Button>
 
-            <TextBox x:Name="AddressBar" Grid.Column="4" Text="{Binding AddressBarText}"
+                <Border Style="{StaticResource ToolbarSeparator}" />
+
+                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="NewFolder_Click" ToolTip="New folder (Ctrl+Shift+N)">
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="FolderAdd24" /></ui:Button.Icon>
+                </ui:Button>
+                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextCut_Click" ToolTip="Cut (Ctrl+X)">
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="Cut24" /></ui:Button.Icon>
+                </ui:Button>
+                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextCopy_Click" ToolTip="Copy (Ctrl+C)">
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="Copy24" /></ui:Button.Icon>
+                </ui:Button>
+                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="EmptyPaste_Click" ToolTip="Paste (Ctrl+V)">
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="ClipboardPaste24" /></ui:Button.Icon>
+                </ui:Button>
+                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextRename_Click" ToolTip="Rename (F2)">
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="Rename24" /></ui:Button.Icon>
+                </ui:Button>
+                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextDelete_Click" ToolTip="Delete">
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="Delete24" /></ui:Button.Icon>
+                </ui:Button>
+            </StackPanel>
+
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <TextBox x:Name="SearchBox" Width="200" Margin="0,0,6,0"
+                          Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                          VerticalContentAlignment="Center" Padding="8,4"
+                          ToolTip="Search (Enter to run)"
+                          KeyDown="SearchBox_KeyDown" />
+
+                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ViewModeToggle_Click" ToolTip="Switch between Details and Large icons view">
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="Grid24" /></ui:Button.Icon>
+                </ui:Button>
+                <ToggleButton Width="32" Height="32" Margin="0,0,4,0" Padding="0"
+                              IsChecked="{Binding ShowHiddenFiles}" ToolTip="Show hidden and system items">
+                    <ui:SymbolIcon Symbol="Eye24" />
+                </ToggleButton>
+
+                <Border Style="{StaticResource ToolbarSeparator}" />
+
+                <ui:Button Style="{StaticResource ToolbarIconButton}" Click="Theme_Click" ToolTip="Customize colors and background">
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="PaintBrush24" /></ui:Button.Icon>
+                </ui:Button>
+                <ui:Button Style="{StaticResource ToolbarIconButton}" Margin="0" Click="Keybinds_Click" ToolTip="Customize keyboard shortcuts">
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="Keyboard24" /></ui:Button.Icon>
+                </ui:Button>
+            </StackPanel>
+
+            <TextBox x:Name="AddressBar" Margin="10,0" Text="{Binding AddressBarText}"
                       VerticalContentAlignment="Center" Padding="8,4"
                       ToolTip="Type a path and press Enter to go there"
                       KeyDown="AddressBar_KeyDown" />
-
-            <Button Grid.Column="5" Content="Details" Padding="8,0" Margin="8,0,4,0"
-                    Click="ViewModeDetails_Click" ToolTip="Details view" />
-            <Button Grid.Column="6" Content="Large icons" Padding="8,0" Margin="0,0,8,0"
-                    Click="ViewModeLargeIcons_Click" ToolTip="Large icons view" />
-
-            <TextBox x:Name="SearchBox" Grid.Column="7"
-                      Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
-                      VerticalContentAlignment="Center" Padding="8,4"
-                      ToolTip="Search (Enter to run)"
-                      KeyDown="SearchBox_KeyDown" />
-
-            <Button Grid.Column="8" Content="Theme" Padding="8,0" Margin="8,0,4,0"
-                    Click="Theme_Click" ToolTip="Customize colors and background" />
-            <Button Grid.Column="9" Content="Keybinds" Padding="8,0" Margin="0,0,4,0"
-                    Click="Keybinds_Click" ToolTip="Customize keyboard shortcuts" />
-            <ToggleButton Grid.Column="10" Content="Hidden items" Padding="8,0"
-                          IsChecked="{Binding ShowHiddenFiles}"
-                          ToolTip="Show hidden and system items" />
-        </Grid>
+        </DockPanel>
 
         <!-- Nav pane (left) + file list (center) + Details/Tools panel (right) -->
         <Grid Grid.Row="3">
@@ -251,7 +295,7 @@
             </TreeView>
 
             <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch"
-                          Background="Transparent" />
+                          Background="{DynamicResource TextPrimaryBrush}" Opacity="0.08" />
 
             <ListView x:Name="FileList" Grid.Column="2" Margin="0,0,8,8"
                       ItemsSource="{Binding Items}"
@@ -302,18 +346,26 @@
             </ListView>
 
             <GridSplitter Grid.Column="3" Width="4" HorizontalAlignment="Stretch"
-                          Background="Transparent" />
+                          Background="{DynamicResource TextPrimaryBrush}" Opacity="0.08" />
 
-            <!-- Details/Tools toggle panel -->
-            <Grid Grid.Column="4" Margin="0,0,8,8" Background="{DynamicResource PanelBackgroundBrush}">
+            <!-- Details/Tools toggle panel — a visibly distinct rounded card,
+                 like real Explorer's Win11 details pane, not flush against
+                 Mica the way the nav pane and file list are. -->
+            <Border Grid.Column="4" Margin="0,0,8,8" Padding="12" CornerRadius="8"
+                    Background="{DynamicResource PanelBackgroundBrush}">
+            <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
-                    <Button Content="Details" Padding="8,2" Margin="0,0,4,0" Click="PanelModeDetails_Click" ToolTip="Details" />
-                    <Button Content="Tools" Padding="8,2" Click="PanelModeTools_Click" ToolTip="Tools" />
+                    <ui:Button Padding="8,4" Margin="0,0,4,0" Click="PanelModeDetails_Click" ToolTip="Details">
+                        <ui:Button.Icon><ui:SymbolIcon Symbol="Info24" /></ui:Button.Icon>
+                    </ui:Button>
+                    <ui:Button Padding="8,4" Click="PanelModeTools_Click" ToolTip="Tools">
+                        <ui:Button.Icon><ui:SymbolIcon Symbol="Wrench24" /></ui:Button.Icon>
+                    </ui:Button>
                 </StackPanel>
 
                 <!-- Details body -->
@@ -441,6 +493,7 @@
                     </StackPanel>
                 </ScrollViewer>
             </Grid>
+            </Border>
         </Grid>
 
         <Border Grid.Row="4" Padding="10,5">

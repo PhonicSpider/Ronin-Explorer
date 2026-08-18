@@ -13,7 +13,10 @@ public sealed class SkinDefinition
 
     public string NavPaneBackground { get; set; } = "#00000000";
     public string FileListBackground { get; set; } = "#00000000";
-    public string PanelBackground { get; set; } = "#00000000";
+    // Subtle white tint (not fully transparent like the other panes) — real
+    // Explorer's details pane in Win11 is a visibly distinct card, not flush
+    // against the Mica surface the way the nav pane and file list are.
+    public string PanelBackground { get; set; } = "#14FFFFFF";
     public string AccentColor { get; set; } = "#FF3D5AFE";
     public string TextPrimary { get; set; } = "#FFFFFFFF";
 

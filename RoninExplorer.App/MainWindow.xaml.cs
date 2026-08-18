@@ -244,9 +244,8 @@ public partial class MainWindow : FluentWindow
 
     // ── View modes and column sorting (M3) ──────────────────────────────────
 
-    private void ViewModeDetails_Click(object sender, RoutedEventArgs e) => _viewModel.ViewMode = FileListViewMode.Details;
-
-    private void ViewModeLargeIcons_Click(object sender, RoutedEventArgs e) => _viewModel.ViewMode = FileListViewMode.LargeIcons;
+    private void ViewModeToggle_Click(object sender, RoutedEventArgs e)
+        => _viewModel.ViewMode = _viewModel.ViewMode == FileListViewMode.Details ? FileListViewMode.LargeIcons : FileListViewMode.Details;
 
     private void ColumnHeader_Click(object sender, RoutedEventArgs e)
     {

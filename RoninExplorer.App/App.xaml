@@ -16,7 +16,7 @@
                  been applied (e.g. first paint, or if a skin file is missing). -->
             <SolidColorBrush x:Key="NavPaneBackgroundBrush" Color="Transparent" />
             <SolidColorBrush x:Key="FileListBackgroundBrush" Color="Transparent" />
-            <SolidColorBrush x:Key="PanelBackgroundBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#14FFFFFF" />
             <SolidColorBrush x:Key="AccentBrush" Color="#3D5AFE" />
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="White" />
         </ResourceDictionary>
