@@ -461,7 +461,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (!CanMutateCurrentFolder()) return;
 
-        var created = NewItemTemplateService.CreateFromTemplate(template, CurrentPath);
+        var created = await NewItemTemplateService.CreateFromTemplateAsync(template, CurrentPath);
         await NavigateToAsync(CurrentPath, recordHistory: false);
 
         var row = Items.FirstOrDefault(r => string.Equals(r.FullPath, created, StringComparison.OrdinalIgnoreCase));

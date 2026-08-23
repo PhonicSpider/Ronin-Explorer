@@ -145,7 +145,8 @@ public static class BasicFileOperations
         }
     }
 
-    private static string ResolveConflictName(string folder, string name)
+    /// <summary>Computes the deduplicated path a new item at <paramref name="name"/> would get, without creating anything — used by NewItemTemplateService's Command-based creation, which needs the path before the external process/service writes the file itself.</summary>
+    internal static string ResolveConflictName(string folder, string name)
     {
         var candidate = Path.Combine(folder, name);
         if (!Directory.Exists(candidate) && !File.Exists(candidate))
