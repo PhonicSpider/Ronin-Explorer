@@ -205,11 +205,22 @@
 
         <!-- Title bar + tab strip merged onto one row, per feedback: no app-name
              text, tabs sit where the title would be, caption buttons stay put
-             on the far right (TitleBar still owns those + the drag region). -->
-        <ui:TitleBar Grid.Row="0" Title="" HorizontalContentAlignment="Left">
-            <ui:TitleBar.Header>
-                <DockPanel Margin="8,0,0,0" LastChildFill="False" HorizontalAlignment="Left">
-                    <ItemsControl ItemsSource="{Binding Tabs}" DockPanel.Dock="Left">
+             on the far right. NOT using ui:TitleBar.Header for this — it kept
+             right-aligning the tabs regardless of HorizontalContentAlignment
+             (confirmed live; that property either isn't wired to the Header
+             presenter in this WPF-UI version, or Header centers by design).
+             Instead: TitleBar is a plain full-width base layer (drag region +
+             caption buttons only, no Header), and the tab strip is a sibling
+             painted on top of it in the same Grid cell, explicitly margined
+             off the right edge so it never overlaps the caption buttons.
+             Blank space in the tab strip's DockPanel has no Background, so
+             clicks there fall through to the TitleBar's drag region beneath
+             instead of being swallowed — only the tabs/button themselves
+             (which do have visible content) intercept clicks. -->
+        <Grid Grid.Row="0">
+            <ui:TitleBar Title="" />
+            <DockPanel Margin="8,0,150,0" LastChildFill="False">
+                <ItemsControl ItemsSource="{Binding Tabs}" DockPanel.Dock="Left">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <StackPanel Orientation="Horizontal" />
@@ -251,12 +262,11 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <ui:Button DockPanel.Dock="Left" Width="28" Height="28" Padding="0" Click="NewTab_Click" ToolTip="New tab (Ctrl+T)">
-                        <ui:Button.Icon><ui:SymbolIcon Symbol="Add24" FontSize="18" /></ui:Button.Icon>
-                    </ui:Button>
-                </DockPanel>
-            </ui:TitleBar.Header>
-        </ui:TitleBar>
+                <ui:Button DockPanel.Dock="Left" Width="28" Height="28" Padding="0" Click="NewTab_Click" ToolTip="New tab (Ctrl+T)">
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="Add24" FontSize="18" /></ui:Button.Icon>
+                </ui:Button>
+            </DockPanel>
+        </Grid>
 
         <!-- Row 1: navigation + address + search (search gets to be longer now
              that the tool icons moved to their own centered row below). -->
@@ -288,12 +298,15 @@
         <!-- Row 2: the rest of the tools, centered — per feedback, kept
              separate from the nav/address/search row so search could grow. -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="8,0,8,6">
-            <ui:Button Style="{StaticResource ToolbarIconButton}" Margin="0,0,0,0" Click="NewFolder_Click" ToolTip="New folder (Ctrl+Shift+N)">
-                <ui:Button.Icon><ui:SymbolIcon Symbol="Add24" FontSize="18" /></ui:Button.Icon>
-            </ui:Button>
-            <ui:Button Width="18" Height="36" Padding="0" Margin="0,0,6,0" Appearance="Transparent" BorderThickness="0"
-                      ContextMenu="{StaticResource NewItemMenu}" Click="OpenDropdown_Click" ToolTip="More new items">
-                <ui:Button.Icon><ui:SymbolIcon Symbol="Navigation24" FontSize="14" /></ui:Button.Icon>
+            <!-- One button, two icons side by side (not two separate buttons) —
+                 clicking anywhere opens the New-item dropdown, which has
+                 "Folder" as its first entry. -->
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Width="52"
+                      ContextMenu="{StaticResource NewItemMenu}" Click="OpenDropdown_Click" ToolTip="New">
+                <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon Symbol="Add24" FontSize="18" />
+                    <ui:SymbolIcon Symbol="Navigation24" FontSize="12" Margin="4,0,0,0" />
+                </StackPanel>
             </ui:Button>
 
             <Border Style="{StaticResource ToolbarSeparator}" />
@@ -316,13 +329,15 @@
 
             <Border Style="{StaticResource ToolbarSeparator}" />
 
-            <ToggleButton Width="36" Height="36" Margin="0,0,0,0" Padding="0"
-                          IsChecked="{Binding ShowHiddenFiles}" ToolTip="Show hidden and system items">
-                <ui:SymbolIcon Symbol="Eye24" FontSize="18" />
-            </ToggleButton>
-            <ui:Button Width="18" Height="36" Padding="0" Margin="0,0,6,0" Appearance="Transparent" BorderThickness="0"
-                      ContextMenu="{StaticResource ViewOptionsMenu}" Click="OpenDropdown_Click" ToolTip="More view options">
-                <ui:Button.Icon><ui:SymbolIcon Symbol="Navigation24" FontSize="14" /></ui:Button.Icon>
+            <!-- Same treatment as New: one button, eye + hamburger together,
+                 opens the View-options dropdown (which includes "Show hidden
+                 items" as a checkbox, so the toggle isn't lost, just moved). -->
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Width="52"
+                      ContextMenu="{StaticResource ViewOptionsMenu}" Click="OpenDropdown_Click" ToolTip="View options">
+                <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon Symbol="Eye24" FontSize="18" />
+                    <ui:SymbolIcon Symbol="Navigation24" FontSize="12" Margin="4,0,0,0" />
+                </StackPanel>
             </ui:Button>
 
             <Border Style="{StaticResource ToolbarSeparator}" />
