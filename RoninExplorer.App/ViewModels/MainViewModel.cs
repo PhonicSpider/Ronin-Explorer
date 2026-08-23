@@ -352,6 +352,14 @@ public partial class MainViewModel : ObservableObject
         ApplySort();
     }
 
+    /// <summary>Sets the sort direction directly (the View-options dropdown's explicit Ascending/Descending entries), leaving the sort column unchanged.</summary>
+    public void SetSortDirection(bool ascending)
+    {
+        if (SortAscending == ascending) return;
+        SortAscending = ascending;
+        ApplySort();
+    }
+
     private void ApplySort()
     {
         IOrderedEnumerable<FileRow> ordered = SortColumn switch
@@ -423,6 +431,18 @@ public partial class MainViewModel : ObservableObject
         if (!CanMutateCurrentFolder()) return;
 
         var created = BasicFileOperations.CreateFolder(CurrentPath);
+        await NavigateToAsync(CurrentPath, recordHistory: false);
+
+        var row = Items.FirstOrDefault(r => string.Equals(r.FullPath, created, StringComparison.OrdinalIgnoreCase));
+        if (row is not null) BeginRename(row);
+    }
+
+    /// <summary>Creates a new empty file with the given name (e.g. "New Text Document.txt") and enters inline rename — the "New" dropdown's non-folder options.</summary>
+    public async Task NewFileAsync(string desiredName)
+    {
+        if (!CanMutateCurrentFolder()) return;
+
+        var created = BasicFileOperations.CreateFile(CurrentPath, desiredName);
         await NavigateToAsync(CurrentPath, recordHistory: false);
 
         var row = Items.FirstOrDefault(r => string.Equals(r.FullPath, created, StringComparison.OrdinalIgnoreCase));

@@ -26,6 +26,20 @@ public static class BasicFileOperations
         return path;
     }
 
+    /// <summary>
+    /// Creates a new empty file under <paramref name="parentPath"/> with the
+    /// same Explorer-style name dedup as <see cref="CreateFolder"/> — the
+    /// engine side of the toolbar's "New" menu (Explorer's own "New &gt;
+    /// Text Document" etc.). Returns the full path of the created file.
+    /// </summary>
+    public static string CreateFile(string parentPath, string desiredName)
+    {
+        var path = ResolveConflictName(parentPath, desiredName);
+        File.WriteAllBytes(path, []);
+        NotifyShellUpdate(parentPath);
+        return path;
+    }
+
     /// <summary>Renames a file or folder in place. Fails if the target name is already taken.</summary>
     public static bool Rename(string path, string newName, out string error)
     {

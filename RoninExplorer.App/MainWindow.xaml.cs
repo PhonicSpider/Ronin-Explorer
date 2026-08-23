@@ -269,6 +269,32 @@ public partial class MainWindow : FluentWindow
 
     private void ViewModeLargeIcons_Click(object sender, RoutedEventArgs e) => _viewModel.ViewMode = FileListViewMode.LargeIcons;
 
+    // ── "New" and "View options" dropdowns ──────────────────────────────────
+
+    /// <summary>Opens whichever ContextMenu is attached to the clicked element — shared by both hamburger dropdown buttons (New / View options).</summary>
+    private void OpenDropdown_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { ContextMenu: { } menu } element)
+        {
+            menu.PlacementTarget = element;
+            menu.IsOpen = true;
+        }
+    }
+
+    private async void NewTextDocument_Click(object sender, RoutedEventArgs e) => await _viewModel.NewFileAsync("New Text Document.txt");
+
+    private void SortByName_Click(object sender, RoutedEventArgs e) => _viewModel.SortBy(FileSortColumn.Name);
+
+    private void SortByDate_Click(object sender, RoutedEventArgs e) => _viewModel.SortBy(FileSortColumn.DateModified);
+
+    private void SortByType_Click(object sender, RoutedEventArgs e) => _viewModel.SortBy(FileSortColumn.Type);
+
+    private void SortBySize_Click(object sender, RoutedEventArgs e) => _viewModel.SortBy(FileSortColumn.Size);
+
+    private void SortAscending_Click(object sender, RoutedEventArgs e) => _viewModel.SetSortDirection(ascending: true);
+
+    private void SortDescending_Click(object sender, RoutedEventArgs e) => _viewModel.SetSortDirection(ascending: false);
+
     private void ColumnHeader_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not GridViewColumnHeader { Tag: string tag }) return;

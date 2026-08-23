@@ -27,11 +27,12 @@
              using this style, while unstyled ui:Buttons elsewhere rendered
              their icons fine). -->
         <Style x:Key="ToolbarIconButton" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
-            <Setter Property="Width" Value="30" />
-            <Setter Property="Height" Value="30" />
+            <Setter Property="Width" Value="36" />
+            <Setter Property="Height" Value="36" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,0,1,0" />
+            <Setter Property="Margin" Value="0,0,6,0" />
             <Setter Property="Appearance" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
         </Style>
 
         <Style x:Key="ToolbarSeparator" TargetType="Border">
@@ -62,6 +63,33 @@
 
         <ContextMenu x:Key="FavoriteItemContextMenu">
             <MenuItem Header="Remove from Favorites" Click="RemoveFavorite_Click" />
+        </ContextMenu>
+
+        <!-- "New" dropdown — the "+" button does the primary action (new
+             folder) directly; this menu (opened from the hamburger button
+             next to it) is where more item types live, same split as
+             Explorer's own New button. -->
+        <ContextMenu x:Key="NewItemMenu">
+            <MenuItem Header="Folder" Click="NewFolder_Click" />
+            <MenuItem Header="Text Document" Click="NewTextDocument_Click" />
+        </ContextMenu>
+
+        <!-- "View options" dropdown — everything view-related that isn't the
+             single most-used hidden-items toggle (which keeps its own eye
+             button): view mode, sort column, sort direction. -->
+        <ContextMenu x:Key="ViewOptionsMenu">
+            <MenuItem Header="Large icons" Click="ViewModeLargeIcons_Click" />
+            <MenuItem Header="Details" Click="ViewModeDetails_Click" />
+            <Separator />
+            <MenuItem Header="Sort by name" Click="SortByName_Click" />
+            <MenuItem Header="Sort by date modified" Click="SortByDate_Click" />
+            <MenuItem Header="Sort by type" Click="SortByType_Click" />
+            <MenuItem Header="Sort by size" Click="SortBySize_Click" />
+            <Separator />
+            <MenuItem Header="Ascending" Click="SortAscending_Click" />
+            <MenuItem Header="Descending" Click="SortDescending_Click" />
+            <Separator />
+            <MenuItem Header="Show hidden items" IsCheckable="True" IsChecked="{Binding ShowHiddenFiles}" />
         </ContextMenu>
 
         <!-- Name-cell template shared by both Details and Large-icons views: an
@@ -178,9 +206,9 @@
         <!-- Title bar + tab strip merged onto one row, per feedback: no app-name
              text, tabs sit where the title would be, caption buttons stay put
              on the far right (TitleBar still owns those + the drag region). -->
-        <ui:TitleBar Grid.Row="0" Title="">
+        <ui:TitleBar Grid.Row="0" Title="" HorizontalContentAlignment="Left">
             <ui:TitleBar.Header>
-                <DockPanel Margin="8,0,0,0" LastChildFill="False">
+                <DockPanel Margin="8,0,0,0" LastChildFill="False" HorizontalAlignment="Left">
                     <ItemsControl ItemsSource="{Binding Tabs}" DockPanel.Dock="Left">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -189,15 +217,27 @@
                         </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type vm:TabState}">
-                                <Border x:Name="TabBorder" Margin="0,0,4,0" Padding="10,6" CornerRadius="6,6,0,0"
+                                <Border x:Name="TabBorder" Margin="0,0,4,0" Padding="10,7" CornerRadius="6,6,0,0"
                                         MouseLeftButtonUp="TabItem_MouseLeftButtonUp">
-                                    <Border.Background>
-                                        <MultiBinding Converter="{StaticResource TabActiveConverter}">
-                                            <Binding />
-                                            <Binding Path="DataContext.ActiveTab" RelativeSource="{RelativeSource AncestorType=Window}" />
-                                        </MultiBinding>
-                                    </Border.Background>
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background">
+                                                <Setter.Value>
+                                                    <MultiBinding Converter="{StaticResource TabActiveConverter}">
+                                                        <Binding />
+                                                        <Binding Path="DataContext.ActiveTab" RelativeSource="{RelativeSource AncestorType=Window}" />
+                                                    </MultiBinding>
+                                                </Setter.Value>
+                                            </Setter>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="{DynamicResource HoverHighlightBrush}" />
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
                                     <StackPanel Orientation="Horizontal">
+                                        <ui:SymbolIcon Symbol="Folder24" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center" />
                                         <TextBlock Text="{Binding Title}" VerticalAlignment="Center" MaxWidth="140" TextTrimming="CharacterEllipsis" />
                                         <Button x:Name="CloseButton" Content="&#10005;" Margin="8,0,0,0" Padding="2" FontSize="9" Opacity="0"
                                                 Click="TabClose_Click" ToolTip="Close tab (Ctrl+W)" />
@@ -212,7 +252,7 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                     <ui:Button DockPanel.Dock="Left" Width="28" Height="28" Padding="0" Click="NewTab_Click" ToolTip="New tab (Ctrl+T)">
-                        <ui:Button.Icon><ui:SymbolIcon Symbol="Add24" /></ui:Button.Icon>
+                        <ui:Button.Icon><ui:SymbolIcon Symbol="Add24" FontSize="18" /></ui:Button.Icon>
                     </ui:Button>
                 </DockPanel>
             </ui:TitleBar.Header>
@@ -223,13 +263,13 @@
         <DockPanel Grid.Row="1" Margin="8,6" LastChildFill="True">
             <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
                 <ui:Button Style="{StaticResource ToolbarIconButton}" Command="{Binding GoBackCommand}" ToolTip="Back">
-                    <ui:Button.Icon><ui:SymbolIcon Symbol="ArrowLeft24" /></ui:Button.Icon>
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="ArrowLeft24" FontSize="18" /></ui:Button.Icon>
                 </ui:Button>
                 <ui:Button Style="{StaticResource ToolbarIconButton}" Command="{Binding GoForwardCommand}" ToolTip="Forward">
-                    <ui:Button.Icon><ui:SymbolIcon Symbol="ArrowRight24" /></ui:Button.Icon>
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="ArrowRight24" FontSize="18" /></ui:Button.Icon>
                 </ui:Button>
                 <ui:Button Style="{StaticResource ToolbarIconButton}" Command="{Binding GoUpCommand}" ToolTip="Up">
-                    <ui:Button.Icon><ui:SymbolIcon Symbol="ArrowUp24" /></ui:Button.Icon>
+                    <ui:Button.Icon><ui:SymbolIcon Symbol="ArrowUp24" FontSize="18" /></ui:Button.Icon>
                 </ui:Button>
             </StackPanel>
 
@@ -248,39 +288,50 @@
         <!-- Row 2: the rest of the tools, centered — per feedback, kept
              separate from the nav/address/search row so search could grow. -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center" Margin="8,0,8,6">
-            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="NewFolder_Click" ToolTip="New folder (Ctrl+Shift+N)">
-                <ui:Button.Icon><ui:SymbolIcon Symbol="FolderAdd24" /></ui:Button.Icon>
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Margin="0,0,0,0" Click="NewFolder_Click" ToolTip="New folder (Ctrl+Shift+N)">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="Add24" FontSize="18" /></ui:Button.Icon>
             </ui:Button>
-            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextCut_Click" ToolTip="Cut (Ctrl+X)">
-                <ui:Button.Icon><ui:SymbolIcon Symbol="Cut24" /></ui:Button.Icon>
-            </ui:Button>
-            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextCopy_Click" ToolTip="Copy (Ctrl+C)">
-                <ui:Button.Icon><ui:SymbolIcon Symbol="Copy24" /></ui:Button.Icon>
-            </ui:Button>
-            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="EmptyPaste_Click" ToolTip="Paste (Ctrl+V)">
-                <ui:Button.Icon><ui:SymbolIcon Symbol="ClipboardPaste24" /></ui:Button.Icon>
-            </ui:Button>
-            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextRename_Click" ToolTip="Rename (F2)">
-                <ui:Button.Icon><ui:SymbolIcon Symbol="Rename24" /></ui:Button.Icon>
-            </ui:Button>
-            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextDelete_Click" ToolTip="Delete">
-                <ui:Button.Icon><ui:SymbolIcon Symbol="Delete24" /></ui:Button.Icon>
+            <ui:Button Width="18" Height="36" Padding="0" Margin="0,0,6,0" Appearance="Transparent" BorderThickness="0"
+                      ContextMenu="{StaticResource NewItemMenu}" Click="OpenDropdown_Click" ToolTip="More new items">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="Navigation24" FontSize="14" /></ui:Button.Icon>
             </ui:Button>
 
             <Border Style="{StaticResource ToolbarSeparator}" />
 
-            <ToggleButton Width="32" Height="32" Margin="0,0,2,0" Padding="0"
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextCut_Click" ToolTip="Cut (Ctrl+X)">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="Cut24" FontSize="18" /></ui:Button.Icon>
+            </ui:Button>
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextCopy_Click" ToolTip="Copy (Ctrl+C)">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="Copy24" FontSize="18" /></ui:Button.Icon>
+            </ui:Button>
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="EmptyPaste_Click" ToolTip="Paste (Ctrl+V)">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="ClipboardPaste24" FontSize="18" /></ui:Button.Icon>
+            </ui:Button>
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextRename_Click" ToolTip="Rename (F2)">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="Rename24" FontSize="18" /></ui:Button.Icon>
+            </ui:Button>
+            <ui:Button Style="{StaticResource ToolbarIconButton}" Click="ContextDelete_Click" ToolTip="Delete">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="Delete24" FontSize="18" /></ui:Button.Icon>
+            </ui:Button>
+
+            <Border Style="{StaticResource ToolbarSeparator}" />
+
+            <ToggleButton Width="36" Height="36" Margin="0,0,0,0" Padding="0"
                           IsChecked="{Binding ShowHiddenFiles}" ToolTip="Show hidden and system items">
-                <ui:SymbolIcon Symbol="Eye24" />
+                <ui:SymbolIcon Symbol="Eye24" FontSize="18" />
             </ToggleButton>
+            <ui:Button Width="18" Height="36" Padding="0" Margin="0,0,6,0" Appearance="Transparent" BorderThickness="0"
+                      ContextMenu="{StaticResource ViewOptionsMenu}" Click="OpenDropdown_Click" ToolTip="More view options">
+                <ui:Button.Icon><ui:SymbolIcon Symbol="Navigation24" FontSize="14" /></ui:Button.Icon>
+            </ui:Button>
 
             <Border Style="{StaticResource ToolbarSeparator}" />
 
             <ui:Button Style="{StaticResource ToolbarIconButton}" Click="Theme_Click" ToolTip="Customize colors and background">
-                <ui:Button.Icon><ui:SymbolIcon Symbol="PaintBrush24" /></ui:Button.Icon>
+                <ui:Button.Icon><ui:SymbolIcon Symbol="PaintBrush24" FontSize="18" /></ui:Button.Icon>
             </ui:Button>
             <ui:Button Style="{StaticResource ToolbarIconButton}" Margin="0" Click="Keybinds_Click" ToolTip="Customize keyboard shortcuts">
-                <ui:Button.Icon><ui:SymbolIcon Symbol="Keyboard24" /></ui:Button.Icon>
+                <ui:Button.Icon><ui:SymbolIcon Symbol="Keyboard24" FontSize="18" /></ui:Button.Icon>
             </ui:Button>
         </StackPanel>
 
@@ -501,10 +552,10 @@
 
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
                     <ui:Button Padding="8,4" Margin="0,0,4,0" Click="PanelModeDetails_Click" ToolTip="Details">
-                        <ui:Button.Icon><ui:SymbolIcon Symbol="Info24" /></ui:Button.Icon>
+                        <ui:Button.Icon><ui:SymbolIcon Symbol="Info24" FontSize="18" /></ui:Button.Icon>
                     </ui:Button>
                     <ui:Button Padding="8,4" Click="PanelModeTools_Click" ToolTip="Tools">
-                        <ui:Button.Icon><ui:SymbolIcon Symbol="Wrench24" /></ui:Button.Icon>
+                        <ui:Button.Icon><ui:SymbolIcon Symbol="Wrench24" FontSize="18" /></ui:Button.Icon>
                     </ui:Button>
                 </StackPanel>
 
@@ -722,7 +773,7 @@
                 <!-- View-mode toggle, matching Explorer's own bottom-right placement. -->
                 <StackPanel Grid.Column="3" Orientation="Horizontal" Margin="16,0,0,0">
                     <ui:Button Width="24" Height="24" Padding="0" Margin="0,0,2,0" Click="ViewModeDetails_Click" ToolTip="Details view">
-                        <ui:Button.Icon><ui:SymbolIcon Symbol="List24" /></ui:Button.Icon>
+                        <ui:Button.Icon><ui:SymbolIcon Symbol="List24" FontSize="18" /></ui:Button.Icon>
                         <ui:Button.Style>
                             <Style TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
                                 <Style.Triggers>
@@ -734,7 +785,7 @@
                         </ui:Button.Style>
                     </ui:Button>
                     <ui:Button Width="24" Height="24" Padding="0" Click="ViewModeLargeIcons_Click" ToolTip="Large icons view">
-                        <ui:Button.Icon><ui:SymbolIcon Symbol="Grid24" /></ui:Button.Icon>
+                        <ui:Button.Icon><ui:SymbolIcon Symbol="Grid24" FontSize="18" /></ui:Button.Icon>
                         <ui:Button.Style>
                             <Style TargetType="{x:Type ui:Button}" BasedOn="{StaticResource {x:Type ui:Button}}">
                                 <Style.Triggers>

@@ -26,6 +26,18 @@ public class BasicFileOperationsTests : IDisposable
     }
 
     [Fact]
+    public void CreateFile_DeduplicatesNameLikeExplorer()
+    {
+        var first = BasicFileOperations.CreateFile(_scratchDir, "New Text Document.txt");
+        var second = BasicFileOperations.CreateFile(_scratchDir, "New Text Document.txt");
+
+        Assert.Equal(Path.Combine(_scratchDir, "New Text Document.txt"), first);
+        Assert.Equal(Path.Combine(_scratchDir, "New Text Document (2).txt"), second);
+        Assert.True(File.Exists(first));
+        Assert.True(File.Exists(second));
+    }
+
+    [Fact]
     public void Rename_FailsWhenTargetNameAlreadyExists()
     {
         var a = Path.Combine(_scratchDir, "a.txt");
