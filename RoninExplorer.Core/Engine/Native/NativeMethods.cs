@@ -205,4 +205,21 @@ public static class NativeMethods
         int nOutBufferSize,
         out uint lpBytesReturned,
         IntPtr lpOverlapped);
+
+    // ── Indirect string resources ───────────────────────────────────────────
+    // Registry "New" menu entries (HKCR\.ext\ShellNew\ItemName) often store
+    // their display name as "@shell32.dll,-32739" rather than a plain string —
+    // this resolves that indirection so NewItemTemplateService can show the
+    // same names Explorer does. LOAD_LIBRARY_AS_DATAFILE avoids running the
+    // DLL's code, since we only need its string resource table.
+    public const uint LOAD_LIBRARY_AS_DATAFILE = 0x00000002;
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern IntPtr LoadLibraryEx(string lpLibFileName, IntPtr hFile, uint dwFlags);
+
+    [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "LoadStringW")]
+    public static extern int LoadString(IntPtr hInstance, uint uID, System.Text.StringBuilder lpBuffer, int cchBufferMax);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    public static extern bool FreeLibrary(IntPtr hModule);
 }

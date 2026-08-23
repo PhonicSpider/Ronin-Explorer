@@ -281,8 +281,6 @@ public partial class MainWindow : FluentWindow
         }
     }
 
-    private async void NewTextDocument_Click(object sender, RoutedEventArgs e) => await _viewModel.NewFileAsync("New Text Document.txt");
-
     private void SortByName_Click(object sender, RoutedEventArgs e) => _viewModel.SortBy(FileSortColumn.Name);
 
     private void SortByDate_Click(object sender, RoutedEventArgs e) => _viewModel.SortBy(FileSortColumn.DateModified);

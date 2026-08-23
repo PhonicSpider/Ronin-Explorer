@@ -123,6 +123,22 @@ public partial class MainViewModel : ObservableObject
         PinnedFoldersService.Save(Favorites.Select(f => f.Path!));
     }
 
+    // ── "New" dropdown (registry ShellNew discovery) ────────────────────────
+
+    public ObservableCollection<NewMenuEntry> NewMenuItems { get; } = [];
+
+    private async Task BuildNewMenuAsync()
+    {
+        NewMenuItems.Add(new NewMenuEntry("Folder", NewFolderAsync));
+
+        List<NewItemTemplate> templates;
+        try { templates = await NewItemTemplateService.EnumerateTemplatesAsync(); }
+        catch { return; } // New menu just stays at "Folder" if registry enumeration fails
+
+        foreach (var template in templates)
+            NewMenuItems.Add(new NewMenuEntry(template.DisplayName, () => NewFromTemplateAsync(template)));
+    }
+
     // ── Tabs (M8) ────────────────────────────────────────────────────────────
 
     public ObservableCollection<TabState> Tabs { get; } = [];
@@ -147,6 +163,9 @@ public partial class MainViewModel : ObservableObject
         // Elevation-gated inside — a no-op (instant) when not running as admin,
         // so this never blocks or delays startup for the common case.
         _ = _volumeIndex.BuildAllAsync();
+        // Registry enumeration runs once at startup so the "New" dropdown is
+        // already populated by the time the user first opens it.
+        _ = BuildNewMenuAsync();
     }
 
     public void NewTab()
@@ -437,12 +456,12 @@ public partial class MainViewModel : ObservableObject
         if (row is not null) BeginRename(row);
     }
 
-    /// <summary>Creates a new empty file with the given name (e.g. "New Text Document.txt") and enters inline rename — the "New" dropdown's non-folder options.</summary>
-    public async Task NewFileAsync(string desiredName)
+    /// <summary>Creates a new item from a registry-discovered ShellNew template (see NewItemTemplateService) and enters inline rename — the "New" dropdown's dynamically-populated entries.</summary>
+    public async Task NewFromTemplateAsync(NewItemTemplate template)
     {
         if (!CanMutateCurrentFolder()) return;
 
-        var created = BasicFileOperations.CreateFile(CurrentPath, desiredName);
+        var created = NewItemTemplateService.CreateFromTemplate(template, CurrentPath);
         await NavigateToAsync(CurrentPath, recordHistory: false);
 
         var row = Items.FirstOrDefault(r => string.Equals(r.FullPath, created, StringComparison.OrdinalIgnoreCase));

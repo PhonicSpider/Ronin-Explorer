@@ -40,6 +40,33 @@ public static class BasicFileOperations
         return path;
     }
 
+    /// <summary>
+    /// Creates a new file under <paramref name="parentPath"/> containing
+    /// <paramref name="content"/>, with the same Explorer-style name dedup —
+    /// used for "New" menu entries whose ShellNew registration carries a
+    /// literal Data value (e.g. some Office document types).
+    /// </summary>
+    public static string CreateFileWithContent(string parentPath, string desiredName, byte[] content)
+    {
+        var path = ResolveConflictName(parentPath, desiredName);
+        File.WriteAllBytes(path, content);
+        NotifyShellUpdate(parentPath);
+        return path;
+    }
+
+    /// <summary>
+    /// Creates a new file under <paramref name="parentPath"/> by copying a
+    /// ShellNew template file (e.g. from %SystemRoot%\ShellNew), with the
+    /// same Explorer-style name dedup.
+    /// </summary>
+    public static string CreateFileFromTemplate(string parentPath, string desiredName, string templateSourcePath)
+    {
+        var path = ResolveConflictName(parentPath, desiredName);
+        File.Copy(templateSourcePath, path);
+        NotifyShellUpdate(parentPath);
+        return path;
+    }
+
     /// <summary>Renames a file or folder in place. Fails if the target name is already taken.</summary>
     public static bool Rename(string path, string newName, out string error)
     {

@@ -69,9 +69,18 @@
              folder) directly; this menu (opened from the hamburger button
              next to it) is where more item types live, same split as
              Explorer's own New button. -->
-        <ContextMenu x:Key="NewItemMenu">
-            <MenuItem Header="Folder" Click="NewFolder_Click" />
-            <MenuItem Header="Text Document" Click="NewTextDocument_Click" />
+        <!-- Populated at runtime from MainViewModel.NewMenuItems — "Folder" plus
+             whatever the registry's ShellNew mechanism registers on this machine
+             (Bitmap Image, Rich Text Document, Compressed Folder, any third-party
+             type like Google Docs, ...), matching Explorer's own New menu exactly
+             rather than a hardcoded list. -->
+        <ContextMenu x:Key="NewItemMenu" ItemsSource="{Binding NewMenuItems}">
+            <ContextMenu.ItemContainerStyle>
+                <Style TargetType="MenuItem">
+                    <Setter Property="Header" Value="{Binding DisplayName}" />
+                    <Setter Property="Command" Value="{Binding CreateCommand}" />
+                </Style>
+            </ContextMenu.ItemContainerStyle>
         </ContextMenu>
 
         <!-- "View options" dropdown — everything view-related that isn't the
