@@ -427,12 +427,25 @@
                         <!-- Right-click on an item: Win10-style flat menu, no "show more" step -->
                         <Setter Property="ContextMenu" Value="{StaticResource FileItemContextMenu}" />
                         <Setter Property="Padding" Value="4,2" />
+                        <!-- MinHeight is a safety net: rows collapsed to ~1px
+                             before this, because the GridViewRowPresenter's
+                             Columns binding below (RelativeSource walking up
+                             to the ListView's GridView.ColumnCollection
+                             attached property) silently failed to resolve, so
+                             the presenter had no columns to size itself
+                             against. Fixed the binding itself too (now points
+                             straight at the DetailsGridView resource, which is
+                             the exact same GridView instance already assigned
+                             to ListView.View — no tree-walking/attached-
+                             property lookup involved) but keeping MinHeight so
+                             a row can never silently collapse like this again. -->
+                        <Setter Property="MinHeight" Value="28" />
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="ListViewItem">
                                     <Border x:Name="RowBorder" Background="Transparent" CornerRadius="4" SnapsToDevicePixels="True">
                                         <GridViewRowPresenter Content="{TemplateBinding Content}"
-                                                               Columns="{Binding Path=(GridView.ColumnCollection), RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                               Columns="{Binding Source={StaticResource DetailsGridView}, Path=Columns}"
                                                                Margin="{TemplateBinding Padding}" />
                                     </Border>
                                     <ControlTemplate.Triggers>
